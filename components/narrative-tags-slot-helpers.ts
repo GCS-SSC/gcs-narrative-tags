@@ -38,6 +38,9 @@ const NARRATIVE_TAGS_WORKER_NUMERIC_DEFAULTS: Record<NarrativeTagsNumericConfigK
   negationWindow: 0
 }
 
+/**
+ * Builds the supported entity persistence route, returning an empty string when required identifiers are absent.
+ */
 export const resolveNarrativeTagsRouteUrl = (target: NarrativeTagsEntityTarget | null): string => {
   if (!target) {
     return ''
@@ -54,6 +57,9 @@ export const resolveNarrativeTagsRouteUrl = (target: NarrativeTagsEntityTarget |
   return ''
 }
 
+/**
+ * Normalizes every returned source configuration while treating a missing source list as empty.
+ */
 export const normalizeNarrativeTagsSourceConfigs = (
   sources: NarrativeTagSourceConfig[] | undefined
 ): NarrativeTagSourceConfig[] => {
@@ -65,6 +71,9 @@ export const normalizeNarrativeTagsSourceConfigs = (
     : []
 }
 
+/**
+ * Keeps object tags that either omit a key or reference a key in the active catalog.
+ */
 export const filterValidPersistedNarrativeTags = (
   tags: unknown,
   hasTagKey: (key: string) => boolean
@@ -78,6 +87,9 @@ export const filterValidPersistedNarrativeTags = (
     : []
 }
 
+/**
+ * Reads and validates the current field's tags from an entity's embedded extension payload.
+ */
 export const resolveEmbeddedNarrativeTags = (
   target: NarrativeTagsEntityTarget | null,
   fieldStorageKey: string,
@@ -92,6 +104,9 @@ export const resolveEmbeddedNarrativeTags = (
   return filterValidPersistedNarrativeTags(tags, hasTagKey)
 }
 
+/**
+ * Selects field-specific fetched tags with a legacy agreement-tag fallback, then drops unavailable predefined values.
+ */
 export const resolveFetchedNarrativeTags = (
   response: {
     tags: NarrativeTagValue[]
@@ -107,6 +122,9 @@ export const resolveFetchedNarrativeTags = (
   return tags.filter(tag => !tag.predefined || Boolean(findTagDefinition(tag.key, tag.source)))
 }
 
+/**
+ * Backfills predefined sources, enforces score thresholds, and caps the combined worker suggestions.
+ */
 export const resolveNarrativeTagsWorkerSuggestions = (
   suggestions: NarrativeTagSuggestion[],
   config: NarrativeTagsSlotTargetConfig | null,
@@ -147,6 +165,9 @@ const resolveNarrativeTagsWorkerBooleanConfig = (config: NarrativeTagsSlotTarget
   useBrowserCache: config.useBrowserCache === true
 })
 
+/**
+ * Combines target text, locale, worker defaults, and sourced definitions into a scoring payload.
+ */
 export const buildNarrativeTagsWorkerPayload = (
   text: string,
   locale: 'en' | 'fr',
@@ -159,6 +180,9 @@ export const buildNarrativeTagsWorkerPayload = (
   tags
 })
 
+/**
+ * Builds the primitive dependency snapshot used to reschedule suggestions when target inputs change.
+ */
 export const buildNarrativeTagsSuggestionWatchState = (
   target: NarrativeTagsEntityTarget | null,
   locale: 'en' | 'fr',
@@ -180,6 +204,9 @@ export const buildNarrativeTagsSuggestionWatchState = (
   targetDynamicTags: targetConfig?.maxDynamicTags ?? 0
 })
 
+/**
+ * Ranks available definitions by keyword overlap using the target's predefined suggestion limit.
+ */
 export const resolveKeywordFallbackSuggestions = (
   targetText: string,
   availableTagDefinitions: NarrativeTagDefinitionWithSource[],

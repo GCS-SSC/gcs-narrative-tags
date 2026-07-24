@@ -1,4 +1,3 @@
-/* eslint-disable jsdoc/require-jsdoc */
 import {
   createTransformersTagExtractor,
   rankTagsByKeywordOverlap,
@@ -21,6 +20,9 @@ const asNumber = (value, fallback, min, max) => {
 
 const asBoolean = (value, fallback) => typeof value === 'boolean' ? value : fallback
 
+/**
+ * Clamps worker settings and fixes model execution to the bundled local CPU assets.
+ */
 const resolveConfig = payload => resolveTagExtractorConfig({
   minScore: asNumber(payload.minScore, 0.36, 0, 1),
   maxSuggestions: Math.round(asNumber(payload.maxSuggestions, 4, 1, 12)),
@@ -57,6 +59,9 @@ const getExtractor = async config => {
   return await extractorPromise
 }
 
+/**
+ * Converts an unknown tag-like object to the trimmed bilingual definition consumed by the extractor.
+ */
 export const toTagDefinition = tag => ({
   key: String(tag.key ?? '').trim(),
   label: {
@@ -111,6 +116,9 @@ const normalizeDynamicRange = payload => {
   }
 }
 
+/**
+ * Extracts semantic suggestions for valid input, falling back to keyword overlap when model scoring fails.
+ */
 export const suggestTags = async payload => {
   const text = String(payload.text ?? '').trim()
   const tags = Array.isArray(payload.tags) ? payload.tags.map(toTagDefinition).filter(tag => tag.key && tag.label.en) : []

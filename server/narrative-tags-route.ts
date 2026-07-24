@@ -1,4 +1,3 @@
-/* eslint-disable jsdoc/require-jsdoc */
 import type { JsonValue } from '@gcs-ssc/extensions'
 import type { GcsTextareaKnownTargetKey } from '@gcs-ssc/extensions'
 import type { GcsExtensionRouteContext } from '@gcs-ssc/extensions/server'
@@ -90,6 +89,9 @@ type LegacyNarrativeTagsRouteEvent = {
   }
 }
 
+/**
+ * Adapts the legacy Nitro event shape to the extension route context used by current handlers.
+ */
 const toNarrativeTagsRouteContext = (
   contextOrEvent: GcsExtensionRouteContext | LegacyNarrativeTagsRouteEvent
 ): GcsExtensionRouteContext => {
@@ -111,6 +113,9 @@ const toNarrativeTagsRouteContext = (
   } as GcsExtensionRouteContext
 }
 
+/**
+ * Translates legacy route error codes to localized extension user errors and always throws.
+ */
 export const createExtensionRouteErrorResponse = (
   statusCode: number,
   code: string,
@@ -156,6 +161,9 @@ const buildAgreementScope = (
   ]
 })
 
+/**
+ * Resolves a non-deleted agreement and its stream, transfer-payment profile, and agency identifiers.
+ */
 const resolveAgreementContext = async (
   db: NarrativeTagsRouteDatabase,
   streamId: string,
@@ -217,6 +225,9 @@ const getStreamConfiguration = async (
   }
 }
 
+/**
+ * Validates route identifiers, stream enablement, agreement scope, and read/update authorization.
+ */
 export const resolveNarrativeTagsRouteContext = async (
   contextOrEvent: GcsExtensionRouteContext | LegacyNarrativeTagsRouteEvent,
   action: 'read' | 'update'
@@ -309,6 +320,9 @@ const normalizeSourceAbbreviation = (
   }
 }
 
+/**
+ * Resolves enabled lead-agency and linked-stream tag sources for a confirmed applicant recipient.
+ */
 export const resolveProponentNarrativeTagSources = async (
   db: NarrativeTagsRouteDatabase,
   extensionKey: string,
@@ -436,6 +450,9 @@ export const resolveProponentNarrativeTagSources = async (
   return sources
 }
 
+/**
+ * Reads agreement tags from active KV storage, upgrading legacy strings and discarding malformed values.
+ */
 export const getPersistedNarrativeTags = async (
   db: NarrativeTagsRouteDatabase,
   extensionKey: string,
@@ -492,6 +509,9 @@ export const getPersistedNarrativeTags = async (
   })
 }
 
+/**
+ * Updates the active agreement tag entry or inserts it when none exists.
+ */
 export const setPersistedNarrativeTags = async (
   db: NarrativeTagsRouteDatabase,
   extensionKey: string,
@@ -530,6 +550,9 @@ export const setPersistedNarrativeTags = async (
     .executeTakeFirst()
 }
 
+/**
+ * Reads field-scoped tags from active KV storage, emptying malformed fields and discarding malformed tag values.
+ */
 export const getPersistedTextFieldTags = async (
   db: NarrativeTagsRouteDatabase,
   extensionKey: string,
@@ -571,6 +594,9 @@ export const getPersistedTextFieldTags = async (
   }, {})
 }
 
+/**
+ * Updates the active field-scoped tag entry or inserts it when none exists.
+ */
 export const setPersistedTextFieldTags = async (
   db: NarrativeTagsRouteDatabase,
   extensionKey: string,
@@ -610,6 +636,9 @@ export const setPersistedTextFieldTags = async (
     .executeTakeFirst()
 }
 
+/**
+ * Validates a requested tag array atomically against one target configuration.
+ */
 export const validateRequestedTags = (
   config: NarrativeTagsRouteContext['config'],
   tags: unknown,
@@ -629,6 +658,9 @@ const findRequestedNarrativeTagSource = (
   return { source, sourceConfig }
 }
 
+/**
+ * Validates one tag against its requested source config and replaces supplied metadata with the canonical source.
+ */
 const validateRequestedSourceTag = (
   sources: NarrativeTagSourceConfig[],
   tag: unknown,
@@ -658,6 +690,9 @@ const buildRequestedSourceTagKey = (value: NarrativeTagValue) => {
   return `${ownerKey}:${tagKey}`
 }
 
+/**
+ * Validates sourced tags atomically and rejects duplicate keys within the same agency or stream source.
+ */
 export const validateRequestedSourceTags = (
   sources: NarrativeTagSourceConfig[],
   tags: unknown,

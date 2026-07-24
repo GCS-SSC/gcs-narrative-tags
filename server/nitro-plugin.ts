@@ -1,4 +1,3 @@
-/* eslint-disable jsdoc/require-jsdoc */
 import { defineGcsExtensionNitroPlugin, getGcsExtensionHookDatabase } from '@gcs-ssc/extensions/server'
 import {
   NARRATIVE_TAGS_EXTENSION_KEY,
@@ -71,6 +70,9 @@ const validateProponentTextFieldTags = (
   return normalized as Record<string, NonNullable<ReturnType<typeof validateRequestedSourceTags>>>
 }
 
+/**
+ * Registers profile-update hooks that validate and persist agreement and applicant-recipient narrative tags.
+ */
 export default defineGcsExtensionNitroPlugin(nitroApp => {
   nitroApp.hooks.hook('agreement:profile:updated', async payload => {
     const requestedTags = resolveAgreementDescriptionTags(payload.rawBody)

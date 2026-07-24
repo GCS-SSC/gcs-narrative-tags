@@ -1,5 +1,4 @@
 <script setup lang="ts">
-/* eslint-disable jsdoc/require-jsdoc */
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import type { Ref } from 'vue'
 import type { GcsExtensionJsonConfig, GcsExtensionSlotContext } from '@gcs-ssc/extensions'
@@ -245,6 +244,9 @@ const fieldStorageKey = computed(() => {
   return target ? target.targetKey : ''
 })
 
+/**
+ * Loads persisted field tags and source configs, using embedded payload tags when no route can be formed.
+ */
 const loadPersistedTags = async () => {
   if (!routeUrl.value) {
     sourceConfigs.value = []
@@ -271,6 +273,9 @@ const loadPersistedTags = async () => {
   }
 }
 
+/**
+ * Applies only the latest worker response and substitutes keyword suggestions when worker scoring fails.
+ */
 const handleWorkerMessage = (message: WorkerMessage) => {
   if (message.requestId !== latestRequestId.value) {
     return
@@ -301,6 +306,9 @@ const clearPendingTimer = () => {
   }
 }
 
+/**
+ * Uses immediate keyword ranking for sourced proponent tags or debounces a worker request for other targets.
+ */
 const scheduleSuggestions = () => {
   clearPendingTimer()
   const target = entityTarget.value
@@ -379,6 +387,9 @@ const addSuggestedTag = (suggestion: NarrativeTagSuggestion) => {
   addSuggestion(suggestion.key, suggestion.source)
 }
 
+/**
+ * Rebuilds selected tags from normalized labels, resolving known labels and removing duplicate values.
+ */
 const updateTagInputValues = (labels: string[]) => {
   const seenKeys = new Set<string>()
   const nextTags = labels.flatMap(label => {
@@ -405,6 +416,9 @@ const updateTagInputValues = (labels: string[]) => {
   selectedTags.value = nextTags
 }
 
+/**
+ * Writes field-scoped tags to the host payload and mirrors agreement tags to the legacy payload key.
+ */
 const syncTagsToAgreementPayload = () => {
   const target = entityTarget.value
   if (!target?.setExtensionPayload || !fieldStorageKey.value) {

@@ -1,4 +1,3 @@
-/* eslint-disable jsdoc/require-jsdoc */
 import { GCS_TEXTAREA_TARGETS } from '@gcs-ssc/extensions'
 import type { GcsTextareaKnownTargetKey, JsonValue } from '@gcs-ssc/extensions'
 
@@ -216,6 +215,9 @@ const asNumber = (value: unknown, fallback: number, min: number, max: number): n
   return Math.min(max, Math.max(min, numericValue))
 }
 
+/**
+ * Canonicalizes a label to a lowercase ASCII kebab key with surrounding separators removed.
+ */
 export const normalizeNarrativeTagKey = (value: string): string => value
   .trim()
   .toLowerCase()
@@ -230,6 +232,9 @@ const normalizeLabel = (value: unknown, fallback: Record<NarrativeTagLocale, str
   }
 }
 
+/**
+ * Normalizes a tag source only when it has a non-empty agency id, with optional bilingual display metadata.
+ */
 export const normalizeNarrativeTagSource = (value: unknown): NarrativeTagSource | undefined => {
   if (!isRecord(value)) {
     return undefined
@@ -256,6 +261,9 @@ export const normalizeNarrativeTagSource = (value: unknown): NarrativeTagSource 
   }
 }
 
+/**
+ * Produces an agency-and-stream identity key, using an agency sentinel when no stream is present.
+ */
 export const narrativeTagSourceKey = (source?: NarrativeTagSource): string => {
   if (!source?.agencyId) {
     return ''
@@ -264,9 +272,15 @@ export const narrativeTagSourceKey = (source?: NarrativeTagSource): string => {
   return `${source.agencyId}:${source.streamId ?? 'agency'}`
 }
 
+/**
+ * Compares sources by their normalized agency-and-stream identity.
+ */
 export const sameNarrativeTagSource = (left?: NarrativeTagSource, right?: NarrativeTagSource): boolean =>
   narrativeTagSourceKey(left) === narrativeTagSourceKey(right)
 
+/**
+ * Formats the localized agency label and optional stream label for sourced tag display.
+ */
 export const narrativeTagSourceLabel = (
   source: NarrativeTagSource | undefined,
   locale: NarrativeTagLocale
@@ -306,6 +320,9 @@ const getTargetConfigValue = (
   key: keyof NarrativeTagsTargetConfig
 ): unknown => record[key] ?? legacyConfig[key]
 
+/**
+ * Merges target, legacy root, and default settings while clamping numeric values and ordering n-gram bounds.
+ */
 const normalizeTargetConfig = (
   value: unknown,
   legacyConfig: Record<string, unknown>,
@@ -371,6 +388,9 @@ const normalizeTag = (value: unknown, fallback: NarrativeTagDefinition, index: n
   }
 }
 
+/**
+ * Normalizes target settings and unique tag definitions, restoring cloned defaults when no valid tags remain.
+ */
 export const normalizeNarrativeTagsConfig = (value: unknown): NarrativeTagsConfig => {
   const record = isRecord(value) ? value : {}
   const rawTags = Array.isArray(record.tags) ? record.tags : DEFAULT_CONFIG.tags
@@ -399,11 +419,17 @@ export const normalizeNarrativeTagsConfig = (value: unknown): NarrativeTagsConfi
   }
 }
 
+/**
+ * Returns the configured target settings, falling back to the built-in target defaults.
+ */
 export const getNarrativeTagsTargetConfig = (
   config: NarrativeTagsConfig,
   targetKey: GcsTextareaKnownTargetKey
 ): NarrativeTagsTargetConfig => config.targets[targetKey] ?? DEFAULT_CONFIG.targets[targetKey]
 
+/**
+ * Projects normalized settings and tag definitions into the extension's JSON-compatible config shape.
+ */
 export const toNarrativeTagsJson = (config: NarrativeTagsConfig): Record<string, JsonValue> => ({
   enabled: config.enabled,
   targets: config.targets as unknown as JsonValue,
@@ -421,6 +447,9 @@ const combinedDescriptionText = (descriptions: { en?: string; fr?: string }) => 
   asString(descriptions.fr).trim()
 ].filter(item => item.length > 0).join('\n\n')
 
+/**
+ * Normalizes supported agreement or proponent description contexts, including legacy owner-id aliases.
+ */
 export const resolveNarrativeTagsDescriptionsContext = (context: Record<string, unknown>): NarrativeTagsDescriptionsContext | null => {
   if (context.kind !== 'agreement.descriptions' && context.kind !== 'proponent.descriptions') {
     return null
@@ -446,8 +475,14 @@ export const resolveNarrativeTagsDescriptionsContext = (context: Record<string, 
   }
 }
 
+/**
+ * Exposes description-context normalization under the host textarea integration contract.
+ */
 export const resolveNarrativeTagsTextareaContext = resolveNarrativeTagsDescriptionsContext
 
+/**
+ * Resolves a non-empty description context to its agreement or proponent persistence target.
+ */
 export const resolveNarrativeTagsEntityTarget = (context: Record<string, unknown>): NarrativeTagsEntityTarget | null => {
   const descriptionsContext = resolveNarrativeTagsDescriptionsContext(context)
   if (!descriptionsContext?.descriptions) {
@@ -484,6 +519,9 @@ export const resolveNarrativeTagsEntityTarget = (context: Record<string, unknown
   }
 }
 
+/**
+ * Builds English embedding input from a tag's label, description, and non-empty aliases.
+ */
 export const buildTagEmbeddingText = (tag: NarrativeTagDefinition): string => [
   tag.label.en,
   tag.description.en,
@@ -495,6 +533,9 @@ const tokenize = (value: string): string[] => value
   .split(/[^a-z0-9]+/)
   .filter(token => token.length > 2)
 
+/**
+ * Ranks tags by token overlap plus exact-alias boost, returning only positive scores up to the limit.
+ */
 export const rankTagsByKeywordOverlap = (
   text: string,
   tags: NarrativeTagDefinitionWithSource[],
@@ -525,14 +566,23 @@ export const rankTagsByKeywordOverlap = (
     .slice(0, maxSuggestions)
 }
 
+/**
+ * Collects the configured predefined tag keys for membership validation.
+ */
 export const validTagKeys = (config: NarrativeTagsConfig): Set<string> =>
   new Set(config.tags.map(tag => tag.key))
 
 const normalizeCustomLabel = (value: string): string => value.trim().replace(/\s+/g, ' ')
 
+/**
+ * Builds a source-scoped identity for either a predefined key or normalized custom label.
+ */
 export const tagValueKey = (tag: NarrativeTagValue): string =>
   `${narrativeTagSourceKey(tag.source)}:${tag.predefined ? `predefined:${tag.key}` : `custom:${normalizeNarrativeTagKey(tag.label)}`}`
 
+/**
+ * Creates a predefined value with the requested localized label and optional source metadata.
+ */
 export const makePredefinedTagValue = (
   tag: NarrativeTagDefinition,
   locale: NarrativeTagLocale,
@@ -607,6 +657,9 @@ const normalizeCustomNarrativeTagValue = (
   } satisfies NarrativeTagValue
 }
 
+/**
+ * Dispatches legacy strings and structured values to predefined or custom tag normalization.
+ */
 const normalizeNarrativeTagItem = (
   item: unknown,
   allowedTags: Map<string, NarrativeTagDefinition>,
@@ -628,6 +681,9 @@ const normalizeNarrativeTagItem = (
   return normalizeCustomNarrativeTagValue(item, targetConfig)
 }
 
+/**
+ * Normalizes an entire tag array atomically, rejecting invalid, disallowed, or duplicate values.
+ */
 export const normalizeNarrativeTagValues = (
   config: NarrativeTagsConfig,
   tags: unknown,

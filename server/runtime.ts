@@ -9,6 +9,9 @@ import {
   type NarrativeTagsRouteDatabase
 } from './narrative-tags-route'
 
+/**
+ * Enables the proponent description slot only when the entity has at least one enabled tag source.
+ */
 export default async (
   host: GcsExtensionRuntimeHostContext,
   context: GcsExtensionRuntimeContext

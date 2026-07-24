@@ -1,4 +1,3 @@
-/* eslint-disable jsdoc/require-jsdoc */
 import {
   createGcsExtensionUserError,
   type GcsExtensionLocalizedMessage,
@@ -72,10 +71,16 @@ const createLocalizedUserError = (options: GcsExtensionUserErrorOptions) => {
   })
 }
 
+/**
+ * Returns the bilingual message registered for a narrative-tags error code.
+ */
 export const getNarrativeTagsErrorMessage = (
   code: NarrativeTagsErrorCode
 ) => errorMessages[code]
 
+/**
+ * Creates a localized user error with the code's HTTP status and optional field-level detail.
+ */
 export const createNarrativeTagsUserError = (
   code: NarrativeTagsErrorCode,
   path?: string
