@@ -7,7 +7,7 @@ import {
 } from '../../../../../../../narrative-tags-route'
 
 export default defineGcsExtensionRouteHandler(async context => {
-  const { db, readBody } = context
+  const { readBody } = context
   const routeContext = await resolveNarrativeTagsRouteContext(context, 'update')
 
   const body = await readBody<{ tags?: unknown }>()
@@ -17,7 +17,7 @@ export default defineGcsExtensionRouteHandler(async context => {
   }
 
   const row = await setPersistedNarrativeTags(
-    db as never,
+    routeContext.db,
     routeContext.extensionKey,
     routeContext.agreementId,
     requestedTags

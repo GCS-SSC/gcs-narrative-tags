@@ -5,8 +5,8 @@ import type {
 } from '@gcs-ssc/extensions'
 import {
   NARRATIVE_TAGS_EXTENSION_KEY,
+  requireNarrativeTagsRouteDatabase,
   resolveProponentNarrativeTagSources,
-  type NarrativeTagsRouteDatabase
 } from './narrative-tags-route'
 
 /**
@@ -25,7 +25,7 @@ export default async (
   }
 
   const sources = await resolveProponentNarrativeTagSources(
-    host.db as NarrativeTagsRouteDatabase,
+    requireNarrativeTagsRouteDatabase(host.db),
     NARRATIVE_TAGS_EXTENSION_KEY,
     context.agencyId,
     context.applicantRecipientId

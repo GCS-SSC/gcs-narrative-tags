@@ -4,12 +4,11 @@ import {
   NARRATIVE_TAGS_PROPONENT_OWNER_TYPE,
   createExtensionRouteErrorResponse,
   getPersistedTextFieldTags,
+  requireNarrativeTagsRouteDatabase,
   resolveProponentNarrativeTagSources,
-  type NarrativeTagsRouteDatabase
 } from '../../../../../../../narrative-tags-route'
 
 export default defineGcsExtensionRouteHandler(async ({ params, auth, db: rawDb }) => {
-  const db = rawDb as NarrativeTagsRouteDatabase
   const extensionKey = params.extensionKey
   const agencyId = params.agencyId
   const applicantRecipientId = params.applicantRecipientId
@@ -27,6 +26,7 @@ export default defineGcsExtensionRouteHandler(async ({ params, auth, db: rawDb }
     return createExtensionRouteErrorResponse(401, 'AUTH_UNAUTHORIZED', 'Unauthorized.')
   }
 
+  const db = requireNarrativeTagsRouteDatabase(rawDb)
   const sources = await resolveProponentNarrativeTagSources(
     db,
     NARRATIVE_TAGS_EXTENSION_KEY,

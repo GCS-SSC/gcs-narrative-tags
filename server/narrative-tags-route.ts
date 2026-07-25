@@ -1,6 +1,8 @@
-import type { JsonValue } from '@gcs-ssc/extensions'
 import type { GcsTextareaKnownTargetKey } from '@gcs-ssc/extensions'
-import type { GcsExtensionRouteContext } from '@gcs-ssc/extensions/server'
+import type {
+  GcsExtensionRouteContext,
+  GcsExtensionRouteEvent
+} from '@gcs-ssc/extensions/server'
 import {
   normalizeNarrativeTagSource,
   normalizeNarrativeTagsConfig,
@@ -45,7 +47,29 @@ export interface NarrativeTagsRouteDatabase {
   updateTable: (table: string) => MutationChain
 }
 
+const isNarrativeTagsRouteDatabase = (value: unknown): value is NarrativeTagsRouteDatabase =>
+  typeof value === 'object'
+  && value !== null
+  && 'selectFrom' in value
+  && typeof value.selectFrom === 'function'
+  && 'insertInto' in value
+  && typeof value.insertInto === 'function'
+  && 'updateTable' in value
+  && typeof value.updateTable === 'function'
+
+/**
+ * Validates the host database at the extension boundary.
+ */
+export const requireNarrativeTagsRouteDatabase = (value: unknown): NarrativeTagsRouteDatabase => {
+  if (!isNarrativeTagsRouteDatabase(value)) {
+    throw new TypeError('Narrative tags requires a queryable host database.')
+  }
+
+  return value
+}
+
 export interface NarrativeTagsRouteContext {
+  db: NarrativeTagsRouteDatabase
   extensionKey: typeof NARRATIVE_TAGS_EXTENSION_KEY
   streamId: string
   agreementId: string
@@ -62,38 +86,11 @@ export interface NarrativeTagsRouteContext {
   config: ReturnType<typeof normalizeNarrativeTagsConfig>
 }
 
-interface NarrativeTagsRouteAuthContext {
-  userId: string
-  userAbilities: {
-    authorizeWithTeam: (
-      resource: string,
-      action: string,
-      scope: NarrativeTagsRouteContext['scope'],
-      userId: string,
-      includeTeams: boolean,
-      db: NarrativeTagsRouteDatabase
-    ) => Promise<boolean>
-    authorize: (
-      resource: string,
-      action: string,
-      scope: NarrativeTagsRouteContext['scope']
-    ) => boolean
-  }
-}
-
-type LegacyNarrativeTagsRouteEvent = {
-  context: {
-    $db: unknown
-    $authContext?: unknown
-    params?: Record<string, string | undefined>
-  }
-}
-
 /**
- * Adapts the legacy Nitro event shape to the extension route context used by current handlers.
+ * Adapts a raw extension event to the route context used by current handlers.
  */
 const toNarrativeTagsRouteContext = (
-  contextOrEvent: GcsExtensionRouteContext | LegacyNarrativeTagsRouteEvent
+  contextOrEvent: GcsExtensionRouteContext | GcsExtensionRouteEvent
 ): GcsExtensionRouteContext => {
   if ('params' in contextOrEvent && 'db' in contextOrEvent) {
     return contextOrEvent
@@ -104,13 +101,13 @@ const toNarrativeTagsRouteContext = (
     event,
     db: event.context.$db,
     params: event.context.params ?? {},
-    auth: event.context.$authContext as never,
+    auth: event.context.$authContext,
     config: {},
     readBody: async () => {
       throw new Error('Request body is not available on this narrative tags route context.')
     },
     getHeader: () => undefined
-  } as GcsExtensionRouteContext
+  }
 }
 
 /**
@@ -229,11 +226,10 @@ const getStreamConfiguration = async (
  * Validates route identifiers, stream enablement, agreement scope, and read/update authorization.
  */
 export const resolveNarrativeTagsRouteContext = async (
-  contextOrEvent: GcsExtensionRouteContext | LegacyNarrativeTagsRouteEvent,
+  contextOrEvent: GcsExtensionRouteContext | GcsExtensionRouteEvent,
   action: 'read' | 'update'
 ): Promise<NarrativeTagsRouteContext> => {
   const context = toNarrativeTagsRouteContext(contextOrEvent)
-  const db = context.db as NarrativeTagsRouteDatabase
   const extensionKey = context.params.extensionKey
   const streamId = context.params.streamId
   const agreementId = context.params.agreementId
@@ -248,6 +244,7 @@ export const resolveNarrativeTagsRouteContext = async (
     return createExtensionRouteErrorResponse(404, 'EXTENSION_NOT_FOUND', 'Extension not found.')
   }
 
+  const db = requireNarrativeTagsRouteDatabase(context.db)
   const agreement = await resolveAgreementContext(db, resolvedStreamId, resolvedAgreementId)
   if (!agreement) {
     return createExtensionRouteErrorResponse(404, 'AGREEMENT_NOT_FOUND', 'Agreement not found.')
@@ -259,7 +256,7 @@ export const resolveNarrativeTagsRouteContext = async (
     return createExtensionRouteErrorResponse(403, 'EXTENSION_STREAM_DISABLED', 'Extension is disabled for this stream.')
   }
 
-  const authContext = context.auth as NarrativeTagsRouteAuthContext | undefined
+  const authContext = context.auth
   if (!authContext) {
     return createExtensionRouteErrorResponse(401, 'AUTH_UNAUTHORIZED', 'Unauthorized.')
   }
@@ -285,6 +282,7 @@ export const resolveNarrativeTagsRouteContext = async (
   }
 
   return {
+    db,
     extensionKey: NARRATIVE_TAGS_EXTENSION_KEY,
     streamId: resolvedStreamId,
     agreementId: resolvedAgreementId,
@@ -531,7 +529,7 @@ export const setPersistedNarrativeTags = async (
   if (existing) {
     return await db
       .updateTable('extensions.kv_entry')
-      .set({ value: tags as unknown as JsonValue })
+      .set({ value: tags })
       .where('id', '=', existing.id)
       .returningAll()
       .executeTakeFirst()
@@ -544,7 +542,7 @@ export const setPersistedNarrativeTags = async (
       owner_type: NARRATIVE_TAGS_OWNER_TYPE,
       owner_id: agreementId,
       config_key: NARRATIVE_TAGS_CONFIG_KEY,
-      value: tags as unknown as JsonValue
+      value: tags
     })
     .returningAll()
     .executeTakeFirst()
@@ -617,7 +615,7 @@ export const setPersistedTextFieldTags = async (
   if (existing) {
     return await db
       .updateTable('extensions.kv_entry')
-      .set({ value: tagsByField as unknown as JsonValue })
+      .set({ value: tagsByField })
       .where('id', '=', existing.id)
       .returningAll()
       .executeTakeFirst()
@@ -630,7 +628,7 @@ export const setPersistedTextFieldTags = async (
       owner_type: ownerType,
       owner_id: ownerId,
       config_key: NARRATIVE_TAGS_TEXT_FIELD_CONFIG_KEY,
-      value: tagsByField as unknown as JsonValue
+      value: tagsByField
     })
     .returningAll()
     .executeTakeFirst()

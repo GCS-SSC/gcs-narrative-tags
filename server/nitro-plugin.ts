@@ -2,7 +2,7 @@ import { defineGcsExtensionNitroPlugin, getGcsExtensionHookDatabase } from '@gcs
 import {
   NARRATIVE_TAGS_EXTENSION_KEY,
   NARRATIVE_TAGS_PROPONENT_OWNER_TYPE,
-  type NarrativeTagsRouteDatabase,
+  requireNarrativeTagsRouteDatabase,
   resolveProponentNarrativeTagSources,
   setPersistedNarrativeTags,
   setPersistedTextFieldTags,
@@ -11,6 +11,7 @@ import {
 } from './narrative-tags-route'
 import { createNarrativeTagsUserError } from './errors'
 import { normalizeNarrativeTagsConfig } from '../components/narrative-tags'
+import type { NarrativeTagValue } from '../components/narrative-tags'
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null
 
@@ -35,9 +36,9 @@ const resolveTextFieldTags = (rawBody: Record<string, unknown>): Record<string, 
 const validateTextFieldTags = (
   config: ReturnType<typeof normalizeNarrativeTagsConfig>,
   value: Record<string, unknown>
-) => {
+): Record<string, NarrativeTagValue[]> | null => {
   const entries = Object.entries(value)
-  const normalized: Record<string, ReturnType<typeof validateRequestedTags>> = {}
+  const normalized: Record<string, NarrativeTagValue[]> = {}
 
   for (const [key, tags] of entries) {
     const locale = key.endsWith(':fr') ? 'fr' : 'en'
@@ -48,15 +49,15 @@ const validateTextFieldTags = (
     normalized[key] = validatedTags
   }
 
-  return normalized as Record<string, NonNullable<ReturnType<typeof validateRequestedTags>>>
+  return normalized
 }
 
 const validateProponentTextFieldTags = (
   sources: Awaited<ReturnType<typeof resolveProponentNarrativeTagSources>>,
   value: Record<string, unknown>
-) => {
+): Record<string, NarrativeTagValue[]> | null => {
   const entries = Object.entries(value)
-  const normalized: Record<string, ReturnType<typeof validateRequestedSourceTags>> = {}
+  const normalized: Record<string, NarrativeTagValue[]> = {}
 
   for (const [key, tags] of entries) {
     const locale = key.endsWith(':fr') ? 'fr' : 'en'
@@ -67,7 +68,7 @@ const validateProponentTextFieldTags = (
     normalized[key] = validatedTags
   }
 
-  return normalized as Record<string, NonNullable<ReturnType<typeof validateRequestedSourceTags>>>
+  return normalized
 }
 
 /**
@@ -81,8 +82,8 @@ export default defineGcsExtensionNitroPlugin(nitroApp => {
       return
     }
 
-    const db = getGcsExtensionHookDatabase(payload)
-    const row = await (db as NarrativeTagsRouteDatabase)
+    const db = requireNarrativeTagsRouteDatabase(getGcsExtensionHookDatabase(payload))
+    const row = await db
       .selectFrom('extensions.stream_configuration')
       .select(['enabled', 'config'])
       .where('extension_key', '=', NARRATIVE_TAGS_EXTENSION_KEY)
@@ -102,7 +103,7 @@ export default defineGcsExtensionNitroPlugin(nitroApp => {
 
     if (requestedTags !== undefined && tags) {
       await setPersistedNarrativeTags(
-        db as never,
+        db,
         NARRATIVE_TAGS_EXTENSION_KEY,
         payload.agreementId,
         tags
@@ -116,7 +117,7 @@ export default defineGcsExtensionNitroPlugin(nitroApp => {
       }
 
       await setPersistedTextFieldTags(
-        db as never,
+        db,
         NARRATIVE_TAGS_EXTENSION_KEY,
         'fundingcaseagreement',
         payload.agreementId,
@@ -131,8 +132,9 @@ export default defineGcsExtensionNitroPlugin(nitroApp => {
       return
     }
 
+    const db = requireNarrativeTagsRouteDatabase(getGcsExtensionHookDatabase(payload))
     const sources = await resolveProponentNarrativeTagSources(
-      getGcsExtensionHookDatabase(payload) as never,
+      db,
       NARRATIVE_TAGS_EXTENSION_KEY,
       payload.agencyId,
       payload.applicantRecipientId
@@ -148,7 +150,7 @@ export default defineGcsExtensionNitroPlugin(nitroApp => {
     }
 
     await setPersistedTextFieldTags(
-      getGcsExtensionHookDatabase(payload) as never,
+      db,
       NARRATIVE_TAGS_EXTENSION_KEY,
       NARRATIVE_TAGS_PROPONENT_OWNER_TYPE,
       payload.applicantRecipientId,

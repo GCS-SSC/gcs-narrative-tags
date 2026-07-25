@@ -9,12 +9,12 @@ export default defineGcsExtensionRouteHandler(async context => {
   const routeContext = await resolveNarrativeTagsRouteContext(context, 'read')
 
   const tags = await getPersistedNarrativeTags(
-    context.db as never,
+    routeContext.db,
     routeContext.extensionKey,
     routeContext.agreementId
   )
   const textFieldTags = await getPersistedTextFieldTags(
-    context.db as never,
+    routeContext.db,
     routeContext.extensionKey,
     'fundingcaseagreement',
     routeContext.agreementId

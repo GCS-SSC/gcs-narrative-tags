@@ -1,6 +1,10 @@
+import { IncomingMessage, ServerResponse } from 'node:http'
+import { Socket } from 'node:net'
 import { readFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import type { GcsExtensionRouteEvent } from '@gcs-ssc/extensions/server'
+import { createEvent } from 'h3'
 import { describe, expect, it, vi } from 'vitest'
 import extensionDefinition from '../../extension.config'
 import getProponentTagsHandler from '../../server/api/extensions/gcs-narrative-tags/agencies/[agencyId]/applicant-recipients/[applicantRecipientId]/tags.get'
@@ -18,9 +22,11 @@ import {
 } from '../../components/narrative-tags'
 import {
   getPersistedNarrativeTags,
+  requireNarrativeTagsRouteDatabase,
   resolveProponentNarrativeTagSources,
   resolveNarrativeTagsRouteContext,
   setPersistedNarrativeTags,
+  type NarrativeTagsRouteDatabase,
   validateRequestedSourceTags,
   validateRequestedTags
 } from '../../server/narrative-tags-route'
@@ -50,6 +56,27 @@ const createQueryChain = (executeTakeFirstResult?: Record<string, unknown>, exec
     executeTakeFirst: async () => executeTakeFirstResult
   }
   return chain
+}
+
+const createRouteDatabase = (
+  overrides: Partial<NarrativeTagsRouteDatabase> = {}
+): NarrativeTagsRouteDatabase => ({
+  selectFrom: () => createQueryChain(),
+  insertInto: () => createQueryChain(),
+  updateTable: () => createQueryChain(),
+  ...overrides
+})
+
+const createRouteEvent = (
+  context: GcsExtensionRouteEvent['context']
+): GcsExtensionRouteEvent => {
+  const request = new IncomingMessage(new Socket())
+  request.method = 'PATCH'
+
+  return Object.assign(
+    createEvent(request, new ServerResponse(request)),
+    { context }
+  )
 }
 
 describe('gcs narrative tags extension', () => {
@@ -392,14 +419,14 @@ describe('gcs narrative tags extension', () => {
         }]
       }
     }])
-    const db = {
+    const db = createRouteDatabase({
       selectFrom: vi.fn()
         .mockReturnValueOnce(profileQuery)
         .mockReturnValueOnce(leadAgencyQuery)
         .mockReturnValueOnce(linkedStreamsQuery)
-    }
+    })
 
-    await expect(resolveProponentNarrativeTagSources(db as never, 'gcs-narrative-tags', '1', '9')).resolves.toMatchObject([
+    await expect(resolveProponentNarrativeTagSources(db, 'gcs-narrative-tags', '1', '9')).resolves.toMatchObject([
       {
         source: {
           agencyId: '1',
@@ -448,11 +475,11 @@ describe('gcs narrative tags extension', () => {
         enabled: true
       }
     })
-    const db = {
+    const db = createRouteDatabase({
       selectFrom: vi.fn()
         .mockReturnValueOnce(agreementQuery)
         .mockReturnValueOnce(configQuery)
-    }
+    })
     const authContext = {
       userId: 'user-1',
       userAbilities: {
@@ -471,7 +498,7 @@ describe('gcs narrative tags extension', () => {
           agreementId: '44'
         }
       }
-    } as never, 'read')).resolves.toMatchObject({
+    }, 'read')).resolves.toMatchObject({
       extensionKey: 'gcs-narrative-tags',
       streamId: '31',
       agreementId: '44',
@@ -498,14 +525,13 @@ describe('gcs narrative tags extension', () => {
     await expect(resolveNarrativeTagsRouteContext({
       context: {
         $db: db,
-        $authContext: {},
         params: {
           extensionKey: 'other-extension',
           streamId: '31',
           agreementId: '44'
         }
       }
-    } as never, 'read')).rejects.toMatchObject({
+    }, 'read')).rejects.toMatchObject({
       statusCode: 404,
       code: 'GCS_NARRATIVE_TAGS_EXTENSION_NOT_FOUND',
       localizedMessage: {
@@ -522,21 +548,21 @@ describe('gcs narrative tags extension', () => {
     const insertQuery = createQueryChain({ id: 'created' })
     const existingQuery = createQueryChain({ id: 'existing' })
     const updateQuery = createQueryChain({ id: 'existing', value: ['capacity-building'] })
-    const db = {
+    const db = createRouteDatabase({
       selectFrom: vi.fn()
         .mockReturnValueOnce(readQuery)
         .mockReturnValueOnce(missingQuery)
         .mockReturnValueOnce(existingQuery),
       insertInto: vi.fn(() => insertQuery),
       updateTable: vi.fn(() => updateQuery)
-    }
+    })
 
-    await expect(getPersistedNarrativeTags(db as never, 'gcs-narrative-tags', '44')).resolves.toEqual([
+    await expect(getPersistedNarrativeTags(db, 'gcs-narrative-tags', '44')).resolves.toEqual([
       { predefined: true, key: 'infrastructure', label: 'infrastructure' },
       { predefined: true, key: 'community-benefit', label: 'community-benefit' }
     ])
-    await expect(setPersistedNarrativeTags(db as never, 'gcs-narrative-tags', '44', [{ predefined: true, key: 'infrastructure', label: 'Infrastructure' }])).resolves.toEqual({ id: 'created' })
-    await expect(setPersistedNarrativeTags(db as never, 'gcs-narrative-tags', '44', [{ predefined: true, key: 'capacity-building', label: 'Capacity building' }])).resolves.toEqual({
+    await expect(setPersistedNarrativeTags(db, 'gcs-narrative-tags', '44', [{ predefined: true, key: 'infrastructure', label: 'Infrastructure' }])).resolves.toEqual({ id: 'created' })
+    await expect(setPersistedNarrativeTags(db, 'gcs-narrative-tags', '44', [{ predefined: true, key: 'capacity-building', label: 'Capacity building' }])).resolves.toEqual({
       id: 'existing',
       value: ['capacity-building']
     })
@@ -568,33 +594,31 @@ describe('gcs narrative tags extension', () => {
       value: ['infrastructure', 'deleted-tag']
     })
     const textFieldTagsQuery = createQueryChain()
-    const event = {
-      context: {
-        $db: {
-          selectFrom: vi.fn()
-            .mockReturnValueOnce(agreementQuery)
-            .mockReturnValueOnce(configQuery)
-            .mockReturnValueOnce(tagsQuery)
-            .mockReturnValueOnce(textFieldTagsQuery)
-            .mockReturnValueOnce(agreementQuery)
-            .mockReturnValueOnce(configQuery)
-        },
-        $authContext: {
-          userId: 'user-1',
-          userAbilities: {
-            authorizeWithTeam: vi.fn(async () => true),
-            authorize: vi.fn(() => false)
-          }
-        },
-        params: {
-          extensionKey: 'gcs-narrative-tags',
-          streamId: '31',
-          agreementId: '44'
+    const event = createRouteEvent({
+      $db: createRouteDatabase({
+        selectFrom: vi.fn()
+          .mockReturnValueOnce(agreementQuery)
+          .mockReturnValueOnce(configQuery)
+          .mockReturnValueOnce(tagsQuery)
+          .mockReturnValueOnce(textFieldTagsQuery)
+          .mockReturnValueOnce(agreementQuery)
+          .mockReturnValueOnce(configQuery)
+      }),
+      $authContext: {
+        userId: 'user-1',
+        userAbilities: {
+          authorizeWithTeam: vi.fn(async () => true),
+          authorize: vi.fn(() => false)
         }
+      },
+      params: {
+        extensionKey: 'gcs-narrative-tags',
+        streamId: '31',
+        agreementId: '44'
       }
-    }
+    })
 
-    await expect(getTagsHandler(event as never)).resolves.toEqual({
+    await expect(getTagsHandler(event)).resolves.toEqual({
       tags: [{ predefined: true, key: 'infrastructure', label: 'infrastructure' }],
       textFieldTags: {}
     })
@@ -602,7 +626,7 @@ describe('gcs narrative tags extension', () => {
     readBodyMock.mockResolvedValueOnce({
       tags: ['deleted-tag']
     })
-    await expect(patchTagsHandler(event as never)).rejects.toMatchObject({
+    await expect(patchTagsHandler(event)).rejects.toMatchObject({
       statusCode: 400,
       code: 'GCS_NARRATIVE_TAGS_INVALID_TAGS',
       localizedMessage: {
@@ -629,27 +653,29 @@ describe('gcs narrative tags extension', () => {
       }
     })
     const authorize = vi.fn(() => true)
-    const event = {
-      context: {
-        $db: {
-          selectFrom: vi.fn()
-            .mockReturnValueOnce(profileQuery)
-            .mockReturnValueOnce(leadAgencyQuery)
-            .mockReturnValueOnce(linkedStreamsQuery)
-            .mockReturnValueOnce(textFieldTagsQuery)
-        },
-        $authContext: {
-          userAbilities: { authorize }
-        },
-        params: {
-          extensionKey: 'gcs-narrative-tags',
-          agencyId: '1',
-          applicantRecipientId: '9'
+    const event = createRouteEvent({
+      $db: createRouteDatabase({
+        selectFrom: vi.fn()
+          .mockReturnValueOnce(profileQuery)
+          .mockReturnValueOnce(leadAgencyQuery)
+          .mockReturnValueOnce(linkedStreamsQuery)
+          .mockReturnValueOnce(textFieldTagsQuery)
+      }),
+      $authContext: {
+        userId: 'user-1',
+        userAbilities: {
+          authorize,
+          authorizeWithTeam: vi.fn(() => true)
         }
+      },
+      params: {
+        extensionKey: 'gcs-narrative-tags',
+        agencyId: '1',
+        applicantRecipientId: '9'
       }
-    }
+    })
 
-    await expect(getProponentTagsHandler(event as never)).resolves.toMatchObject({
+    await expect(getProponentTagsHandler(event)).resolves.toMatchObject({
       tags: [{ predefined: true, key: 'community', label: 'Community' }],
       textFieldTags: {
         'proponent.description:en': [{ predefined: true, key: 'community', label: 'Community' }]
@@ -667,26 +693,34 @@ describe('gcs narrative tags extension', () => {
   })
 
   it('rejects proponent tag requests without extension route identifiers', async () => {
-    const event = {
-      context: {
-        $db: {},
-        $authContext: {
-          userAbilities: {
-            authorize: vi.fn(() => true)
-          }
-        },
-        params: {
-          extensionKey: 'wrong-extension',
-          agencyId: '1',
-          applicantRecipientId: '9'
+    const event = createRouteEvent({
+      $db: {},
+      $authContext: {
+        userId: 'user-1',
+        userAbilities: {
+          authorize: vi.fn(() => true),
+          authorizeWithTeam: vi.fn(() => true)
         }
+      },
+      params: {
+        extensionKey: 'wrong-extension',
+        agencyId: '1',
+        applicantRecipientId: '9'
       }
-    }
+    })
 
-    await expect(getProponentTagsHandler(event as never)).rejects.toMatchObject({
+    await expect(getProponentTagsHandler(event)).rejects.toMatchObject({
       statusCode: 400,
       code: 'GCS_NARRATIVE_TAGS_MISSING_ROUTE_IDS'
     })
+  })
+
+  it('rejects missing host database capabilities at the extension boundary', () => {
+    expect(() => requireNarrativeTagsRouteDatabase(undefined)).toThrow(TypeError)
+    expect(() => requireNarrativeTagsRouteDatabase({
+      selectFrom: vi.fn()
+    })).toThrow('Narrative tags requires a queryable host database.')
+    expect(requireNarrativeTagsRouteDatabase(createRouteDatabase())).toBeTypeOf('object')
   })
 
   it('persists profile update hook tags from raw extension payloads', async () => {

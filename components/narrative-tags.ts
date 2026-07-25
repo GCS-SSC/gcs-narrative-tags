@@ -3,7 +3,7 @@ import type { GcsTextareaKnownTargetKey, JsonValue } from '@gcs-ssc/extensions'
 
 export type NarrativeTagLocale = 'en' | 'fr'
 
-export interface NarrativeTagDefinition {
+export type NarrativeTagDefinition = {
   key: string
   label: Record<NarrativeTagLocale, string>
   description: Record<NarrativeTagLocale, string>
@@ -11,7 +11,7 @@ export interface NarrativeTagDefinition {
   color: 'primary' | 'secondary' | 'success' | 'info' | 'warning' | 'error' | 'neutral'
 }
 
-export interface NarrativeTagSource {
+export type NarrativeTagSource = {
   agencyId: string
   agencyName?: Record<NarrativeTagLocale, string>
   agencyAbbreviation?: Record<NarrativeTagLocale, string>
@@ -28,7 +28,7 @@ export type NarrativeTagDefinitionWithSource = NarrativeTagDefinition & {
   source?: NarrativeTagSource
 }
 
-export interface NarrativeTagsTargetConfig {
+export type NarrativeTagsTargetConfig = {
   enabled: boolean
   allowCustomTags: boolean
   allowDynamicTagSuggestions: boolean
@@ -432,7 +432,7 @@ export const getNarrativeTagsTargetConfig = (
  */
 export const toNarrativeTagsJson = (config: NarrativeTagsConfig): Record<string, JsonValue> => ({
   enabled: config.enabled,
-  targets: config.targets as unknown as JsonValue,
+  targets: config.targets,
   tags: config.tags.map(tag => ({
     key: tag.key,
     label: tag.label,
