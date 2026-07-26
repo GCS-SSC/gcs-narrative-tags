@@ -1,8 +1,9 @@
 import { IncomingMessage, ServerResponse } from 'node:http'
 import { Socket } from 'node:net'
+import { execFileSync } from 'node:child_process'
 import { readFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import type { GcsExtensionRouteEvent } from '@gcs-ssc/extensions/server'
 import { createEvent } from 'h3'
 import { describe, expect, it, vi } from 'vitest'
@@ -105,6 +106,16 @@ describe('gcs narrative tags extension', () => {
       '/streams/[streamId]/agreements/[agreementId]/tags',
       '/agencies/[agencyId]/applicant-recipients/[applicantRecipientId]/tags'
     ])
+  })
+
+  it('loads the runtime entry through the native Node TypeScript resolver', () => {
+    const runtimeUrl = pathToFileURL(fileURLToPath(new URL('../../server/runtime.ts', import.meta.url))).href
+    const output = execFileSync(process.execPath, [
+      '-e',
+      `import(${JSON.stringify(runtimeUrl)}).then(module => console.log(typeof module.default))`
+    ], { encoding: 'utf8' })
+
+    expect(output.trim()).toBe('function')
   })
 
   it('normalizes config and drops duplicate or invalid tag keys', () => {

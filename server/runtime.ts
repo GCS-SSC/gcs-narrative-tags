@@ -7,7 +7,7 @@ import {
   NARRATIVE_TAGS_EXTENSION_KEY,
   requireNarrativeTagsRouteDatabase,
   resolveProponentNarrativeTagSources,
-} from './narrative-tags-route'
+} from './narrative-tags-route.ts'
 
 /**
  * Enables the proponent description slot only when the entity has at least one enabled tag source.

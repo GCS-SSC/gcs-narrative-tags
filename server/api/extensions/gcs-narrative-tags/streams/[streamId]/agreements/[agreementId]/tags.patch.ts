@@ -4,7 +4,7 @@ import {
   resolveNarrativeTagsRouteContext,
   setPersistedNarrativeTags,
   validateRequestedTags
-} from '../../../../../../../narrative-tags-route'
+} from '../../../../../../../narrative-tags-route.ts'
 
 export default defineGcsExtensionRouteHandler(async context => {
   const { readBody } = context

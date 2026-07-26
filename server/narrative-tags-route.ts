@@ -8,9 +8,9 @@ import {
   normalizeNarrativeTagsConfig,
   normalizeNarrativeTagValues,
   sameNarrativeTagSource
-} from '../components/narrative-tags'
-import type { NarrativeTagSource, NarrativeTagSourceConfig, NarrativeTagValue } from '../components/narrative-tags'
-import { createNarrativeTagsUserError } from './errors'
+} from '../components/narrative-tags.ts'
+import type { NarrativeTagSource, NarrativeTagSourceConfig, NarrativeTagValue } from '../components/narrative-tags.ts'
+import { createNarrativeTagsUserError } from './errors.ts'
 
 export const NARRATIVE_TAGS_EXTENSION_KEY = 'gcs-narrative-tags'
 const NARRATIVE_TAGS_OWNER_TYPE = 'fundingcaseagreement'

@@ -6,7 +6,7 @@ import {
   getPersistedTextFieldTags,
   requireNarrativeTagsRouteDatabase,
   resolveProponentNarrativeTagSources,
-} from '../../../../../../../narrative-tags-route'
+} from '../../../../../../../narrative-tags-route.ts'
 
 export default defineGcsExtensionRouteHandler(async ({ params, auth, db: rawDb }) => {
   const extensionKey = params.extensionKey

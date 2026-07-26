@@ -3,7 +3,7 @@ import {
   getPersistedNarrativeTags,
   getPersistedTextFieldTags,
   resolveNarrativeTagsRouteContext
-} from '../../../../../../../narrative-tags-route'
+} from '../../../../../../../narrative-tags-route.ts'
 
 export default defineGcsExtensionRouteHandler(async context => {
   const routeContext = await resolveNarrativeTagsRouteContext(context, 'read')
