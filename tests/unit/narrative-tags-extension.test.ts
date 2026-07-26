@@ -725,6 +725,7 @@ describe('gcs narrative tags extension', () => {
 
   it('persists profile update hook tags from raw extension payloads', async () => {
     const registeredHooks: Record<string, ((payload: {
+      db?: unknown
       event: {
         context: {
           $db: unknown
@@ -768,12 +769,18 @@ describe('gcs narrative tags extension', () => {
       insertInto: vi.fn(() => insertQuery),
       updateTable: vi.fn()
     }
+    const eventDb = {
+      selectFrom: vi.fn(() => {
+        throw new Error('The event database must not be used when a transaction is supplied.')
+      })
+    }
 
     await import('../../server/nitro-plugin')
     await registeredHooks['agreement:profile:updated']?.({
+      db,
       event: {
         context: {
-          $db: db
+          $db: eventDb
         }
       },
       agreementId: '44',
@@ -790,6 +797,7 @@ describe('gcs narrative tags extension', () => {
     })
 
     expect(db.insertInto).toHaveBeenCalledWith('extensions.kv_entry')
+    expect(eventDb.selectFrom).not.toHaveBeenCalled()
     expect(insertedValues[0]).toEqual(expect.objectContaining({
       extension_key: 'gcs-narrative-tags',
       owner_type: 'fundingcaseagreement',

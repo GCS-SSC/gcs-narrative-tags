@@ -13,10 +13,10 @@ import type { NarrativeTagSource, NarrativeTagSourceConfig, NarrativeTagValue } 
 import { createNarrativeTagsUserError } from './errors'
 
 export const NARRATIVE_TAGS_EXTENSION_KEY = 'gcs-narrative-tags'
-export const NARRATIVE_TAGS_OWNER_TYPE = 'fundingcaseagreement'
+const NARRATIVE_TAGS_OWNER_TYPE = 'fundingcaseagreement'
 export const NARRATIVE_TAGS_PROPONENT_OWNER_TYPE = 'applicantrecipient'
-export const NARRATIVE_TAGS_CONFIG_KEY = 'agreement-description-tags'
-export const NARRATIVE_TAGS_TEXT_FIELD_CONFIG_KEY = 'text-field-tags'
+const NARRATIVE_TAGS_CONFIG_KEY = 'agreement-description-tags'
+const NARRATIVE_TAGS_TEXT_FIELD_CONFIG_KEY = 'text-field-tags'
 
 interface QueryChain {
   innerJoin: (...args: unknown[]) => QueryChain

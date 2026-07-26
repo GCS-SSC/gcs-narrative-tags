@@ -130,7 +130,7 @@ export const AGREEMENT_TAG_COLORS: NarrativeTagDefinition['color'][] = [
   'neutral'
 ]
 
-export const DEFAULT_NARRATIVE_TAGS: NarrativeTagDefinition[] = [
+const DEFAULT_NARRATIVE_TAGS: NarrativeTagDefinition[] = [
   {
     key: 'community-benefit',
     label: {
@@ -522,7 +522,7 @@ export const resolveNarrativeTagsEntityTarget = (context: Record<string, unknown
 /**
  * Builds English embedding input from a tag's label, description, and non-empty aliases.
  */
-export const buildTagEmbeddingText = (tag: NarrativeTagDefinition): string => [
+const buildTagEmbeddingText = (tag: NarrativeTagDefinition): string => [
   tag.label.en,
   tag.description.en,
   ...tag.aliases
@@ -565,12 +565,6 @@ export const rankTagsByKeywordOverlap = (
     .sort((a, b) => b.score - a.score)
     .slice(0, maxSuggestions)
 }
-
-/**
- * Collects the configured predefined tag keys for membership validation.
- */
-export const validTagKeys = (config: NarrativeTagsConfig): Set<string> =>
-  new Set(config.tags.map(tag => tag.key))
 
 const normalizeCustomLabel = (value: string): string => value.trim().replace(/\s+/g, ' ')
 

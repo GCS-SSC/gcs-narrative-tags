@@ -74,7 +74,7 @@ const createLocalizedUserError = (options: GcsExtensionUserErrorOptions) => {
 /**
  * Returns the bilingual message registered for a narrative-tags error code.
  */
-export const getNarrativeTagsErrorMessage = (
+const getNarrativeTagsErrorMessage = (
   code: NarrativeTagsErrorCode
 ) => errorMessages[code]
 
