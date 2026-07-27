@@ -23,6 +23,12 @@ Proponent tags are source-aware. The extension renders when the lead agency has 
 
 The proponent availability rule is implemented by the extension runtime resolver at `server/runtime.ts`; the host only passes the proponent runtime context to the extension.
 
+## Write authorization
+
+Agreement tag writes use the host's two-phase authorization protocol. The route first resolves enough context to reject malformed requests, then starts a database transaction, locks the global authorization state and the extension agency/stream lifecycle scope, re-authorizes the current entity, and re-resolves the agreement and current extension configuration. Validation and the tag upsert run in that same locked transaction, so an agency, stream, extension configuration, or agreement lifecycle change cannot race a stale authorized write.
+
+Hosts embedding this extension must provide `gcsExtension.writeAuthorization` in the request context. The current-scope callback is preferred; the legacy current-entity callback remains supported for compatible hosts.
+
 ## Development
 
 ```bash

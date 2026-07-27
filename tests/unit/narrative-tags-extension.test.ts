@@ -33,6 +33,12 @@ import {
 } from '../../server/narrative-tags-route'
 
 const readBodyMock = vi.hoisted(() => vi.fn())
+const lockLifecycleMock = vi.hoisted(() => vi.fn(async () => undefined))
+
+vi.mock('@gcs-ssc/extensions/server', async importOriginal => ({
+  ...await importOriginal<typeof import('@gcs-ssc/extensions/server')>(),
+  lockGcsExtensionLifecycleScope: lockLifecycleMock
+}))
 
 vi.mock('h3', async () => {
   const actual = await vi.importActual<typeof import('h3')>('h3')
@@ -61,12 +67,19 @@ const createQueryChain = (executeTakeFirstResult?: Record<string, unknown>, exec
 
 const createRouteDatabase = (
   overrides: Partial<NarrativeTagsRouteDatabase> = {}
-): NarrativeTagsRouteDatabase => ({
-  selectFrom: () => createQueryChain(),
-  insertInto: () => createQueryChain(),
-  updateTable: () => createQueryChain(),
-  ...overrides
-})
+) => {
+  const db = {
+    selectFrom: () => createQueryChain(),
+    insertInto: () => createQueryChain(),
+    updateTable: () => createQueryChain(),
+    ...overrides
+  }
+  return Object.assign(db, {
+    transaction: () => ({
+      execute: async <T>(callback: (trx: typeof db) => Promise<T>) => await callback(db)
+    })
+  })
+}
 
 const createRouteEvent = (
   context: GcsExtensionRouteEvent['context']
@@ -76,7 +89,21 @@ const createRouteEvent = (
 
   return Object.assign(
     createEvent(request, new ServerResponse(request)),
-    { context }
+    {
+      context: {
+        ...context,
+        gcsExtension: context.gcsExtension === undefined
+          ? {
+              config: {},
+              writeAuthorization: {
+                lockAuthState: async () => undefined,
+                authorizeCurrentScope: async () => undefined,
+                authorizeCurrentEntity: async () => undefined
+              }
+            }
+          : context.gcsExtension
+      }
+    }
   )
 }
 
@@ -614,6 +641,8 @@ describe('gcs narrative tags extension', () => {
           .mockReturnValueOnce(textFieldTagsQuery)
           .mockReturnValueOnce(agreementQuery)
           .mockReturnValueOnce(configQuery)
+          .mockReturnValueOnce(agreementQuery)
+          .mockReturnValueOnce(configQuery)
       }),
       $authContext: {
         userId: 'user-1',
@@ -645,6 +674,78 @@ describe('gcs narrative tags extension', () => {
         fr: 'Selectionnez des etiquettes qui respectent les regles configurees.'
       }
     })
+  })
+
+  it('locks auth and lifecycle before re-resolving current config and writing tags', async () => {
+    lockLifecycleMock.mockClear()
+    const agreementQuery = createQueryChain({
+      agreement_id: '44',
+      stream_id: '31',
+      profile_id: '22',
+      agency_id: '1'
+    })
+    const configQuery = createQueryChain({
+      enabled: true,
+      config: {
+        enabled: true,
+        tags: [{
+          key: 'infrastructure',
+          label: { en: 'Infrastructure', fr: 'Infrastructure' },
+          description: { en: '', fr: '' },
+          aliases: [],
+          color: 'neutral'
+        }]
+      }
+    })
+    const missingTagsQuery = createQueryChain()
+    const insertQuery = createQueryChain({ id: 'kv-1' })
+    const insertInto = vi.fn(() => insertQuery)
+    const db = createRouteDatabase({
+      selectFrom: vi.fn()
+        .mockReturnValueOnce(agreementQuery)
+        .mockReturnValueOnce(configQuery)
+        .mockReturnValueOnce(agreementQuery)
+        .mockReturnValueOnce(configQuery)
+        .mockReturnValueOnce(missingTagsQuery),
+      insertInto
+    })
+    const lockAuthState = vi.fn(async () => undefined)
+    const authorizeCurrentScope = vi.fn(async () => undefined)
+    const event = createRouteEvent({
+      $db: db,
+      $authContext: {
+        userId: 'user-1',
+        userAbilities: {
+          authorizeWithTeam: vi.fn(async () => true),
+          authorize: vi.fn(() => true)
+        }
+      },
+      params: {
+        extensionKey: 'gcs-narrative-tags',
+        streamId: '31',
+        agreementId: '44'
+      },
+      gcsExtension: {
+        config: {},
+        writeAuthorization: {
+          lockAuthState,
+          authorizeCurrentScope,
+          authorizeCurrentEntity: authorizeCurrentScope
+        }
+      }
+    })
+    readBodyMock.mockResolvedValueOnce({ tags: ['infrastructure'] })
+
+    await expect(patchTagsHandler(event)).resolves.toMatchObject({
+      tags: [expect.objectContaining({ key: 'infrastructure' })],
+      row: { id: 'kv-1' }
+    })
+    expect(lockAuthState.mock.invocationCallOrder[0])
+      .toBeLessThan(lockLifecycleMock.mock.invocationCallOrder[0]!)
+    expect(lockLifecycleMock.mock.invocationCallOrder[0])
+      .toBeLessThan(authorizeCurrentScope.mock.invocationCallOrder[0]!)
+    expect(authorizeCurrentScope.mock.invocationCallOrder[0])
+      .toBeLessThan(insertInto.mock.invocationCallOrder[0]!)
   })
 
   it('loads proponent text field tags from the agency/applicant recipient route', async () => {
