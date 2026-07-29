@@ -3,6 +3,7 @@ import type {
   GcsExtensionRouteContext,
   GcsExtensionRouteEvent
 } from '@gcs-ssc/extensions/server'
+import { createGcsExtensionRouteContext } from '@gcs-ssc/extensions/server'
 import {
   normalizeNarrativeTagSource,
   normalizeNarrativeTagsConfig,
@@ -86,6 +87,25 @@ export interface NarrativeTagsRouteContext {
   config: ReturnType<typeof normalizeNarrativeTagsConfig>
 }
 
+/** Creates a cached, host-owned exact Agreement read predicate for linked-source filtering. */
+export const createAgreementReadPredicate = (
+  agreementAccess: GcsExtensionRouteContext['agreementAccess'],
+  db: unknown
+): ((streamId: string, agreementId: string) => Promise<boolean>) => {
+  const visibleAgreementIds = new Map<string, Promise<Set<string>>>()
+
+  return async (streamId: string, agreementId: string): Promise<boolean> => {
+    if (!agreementAccess) return false
+    let visibleIds = visibleAgreementIds.get(streamId)
+    if (!visibleIds) {
+      visibleIds = agreementAccess.listVisibleOptions(db, { streamId, action: 'read' })
+        .then(options => new Set(options.map(option => option.id)))
+      visibleAgreementIds.set(streamId, visibleIds)
+    }
+    return (await visibleIds).has(agreementId)
+  }
+}
+
 /**
  * Adapts a raw extension event to the route context used by current handlers.
  */
@@ -97,17 +117,7 @@ const toNarrativeTagsRouteContext = (
   }
 
   const event = contextOrEvent
-  return {
-    event,
-    db: event.context.$db,
-    params: event.context.params ?? {},
-    auth: event.context.$authContext,
-    config: {},
-    readBody: async () => {
-      throw new Error('Request body is not available on this narrative tags route context.')
-    },
-    getHeader: () => undefined
-  }
+  return createGcsExtensionRouteContext(event)
 }
 
 /**
@@ -157,6 +167,19 @@ const buildAgreementScope = (
     { type: 'fundingcaseagreement', id: agreementId }
   ]
 })
+
+export const isExactAuthorizedScope = (
+  authorizedScope: GcsExtensionRouteContext['authorizedScope'],
+  requestedScope: NarrativeTagsRouteContext['scope']
+): boolean => {
+  if (!authorizedScope || authorizedScope.type !== 'entity') return false
+  if (authorizedScope.agencyId !== requestedScope.agencyId) return false
+  if (authorizedScope.path.length !== requestedScope.path.length) return false
+  return authorizedScope.path.every((node, index) => {
+    const requestedNode = requestedScope.path[index]
+    return requestedNode?.type === node.type && requestedNode.id === node.id
+  })
+}
 
 /**
  * Resolves a non-deleted agreement and its stream, transfer-payment profile, and agency identifiers.
@@ -267,17 +290,10 @@ export const resolveNarrativeTagsRouteContext = async (
     resolvedAgreement.streamId,
     resolvedAgreement.agreementId
   )
-  const canAccessWithTeam = await authContext.userAbilities.authorizeWithTeam(
-    'agreement',
-    action,
-    scope,
-    authContext.userId,
-    true,
-    db
-  )
-  const canAccessScope = authContext.userAbilities.authorize('agreement', action, scope)
+  const canAccessAgreement = isExactAuthorizedScope(context.authorizedScope, scope)
+    || authContext.userAbilities.authorize('agreement', action, scope)
 
-  if (!canAccessWithTeam && !canAccessScope) {
+  if (!canAccessAgreement) {
     return createExtensionRouteErrorResponse(403, 'AUTH_FORBIDDEN', 'Forbidden.')
   }
 
@@ -325,7 +341,8 @@ export const resolveProponentNarrativeTagSources = async (
   db: NarrativeTagsRouteDatabase,
   extensionKey: string,
   leadAgencyId: string,
-  applicantRecipientId: string
+  applicantRecipientId: string,
+  canReadAgreement?: (streamId: string, agreementId: string) => Promise<boolean>
 ): Promise<NarrativeTagSourceConfig[]> => {
   const profile = await db
     .selectFrom('Applicant_Recipient_Profile')
@@ -401,6 +418,7 @@ export const resolveProponentNarrativeTagSources = async (
         .on('extensions.stream_configuration._deleted', '=', false)
     )
     .select([
+      'Funding_Case_Agreement_Profile.id as agreement_id',
       'Transfer_Payment_Profile.egcs_tp_agency as agency_id',
       'Agency_Profile.egcs_ay_name_en as agency_name_en',
       'Agency_Profile.egcs_ay_name_fr as agency_name_fr',
@@ -420,9 +438,13 @@ export const resolveProponentNarrativeTagSources = async (
 
   const seenSourceKeys = new Set(sources.map(item => `${item.source.agencyId}:${item.source.streamId ?? 'agency'}`))
   for (const row of rows) {
+    const agreementId = String(row.agreement_id ?? '')
     const agencyId = String(row.agency_id ?? '')
     const streamId = String(row.stream_id ?? '')
-    if (!agencyId || !streamId) {
+    if (!agreementId || !agencyId || !streamId) {
+      continue
+    }
+    if (canReadAgreement && !await canReadAgreement(streamId, agreementId)) {
       continue
     }
 
@@ -591,6 +613,17 @@ export const getPersistedTextFieldTags = async (
     return acc
   }, {})
 }
+
+/** Removes persisted tags whose source belongs to an Agreement the caller cannot read. */
+export const filterVisibleSourceTags = (
+  sources: NarrativeTagSourceConfig[],
+  tagsByField: Record<string, NarrativeTagValue[]>
+): Record<string, NarrativeTagValue[]> => Object.fromEntries(
+  Object.entries(tagsByField).map(([key, tags]) => [
+    key,
+    tags.filter(tag => !tag.source || sources.some(source => sameNarrativeTagSource(source.source, tag.source)))
+  ])
+)
 
 /**
  * Updates the active field-scoped tag entry or inserts it when none exists.

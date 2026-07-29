@@ -4,7 +4,7 @@ import { execFileSync } from 'node:child_process'
 import { readFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import type { GcsExtensionRouteEvent } from '@gcs-ssc/extensions/server'
+import type { GcsExtensionAgreementAccess, GcsExtensionRouteEvent } from '@gcs-ssc/extensions/server'
 import { createEvent } from 'h3'
 import { describe, expect, it, vi } from 'vitest'
 import extensionDefinition from '../../extension.config'
@@ -22,6 +22,7 @@ import {
   toNarrativeTagsJson
 } from '../../components/narrative-tags'
 import {
+  filterVisibleSourceTags,
   getPersistedNarrativeTags,
   requireNarrativeTagsRouteDatabase,
   resolveProponentNarrativeTagSources,
@@ -438,6 +439,7 @@ describe('gcs narrative tags extension', () => {
     })
     const leadAgencyQuery = createQueryChain({ enabled: true })
     const linkedStreamsQuery = createQueryChain(undefined, [{
+      agreement_id: '44',
       agency_id: '2',
       agency_name_en: 'Partner Agency',
       agency_name_fr: 'Agence partenaire',
@@ -456,6 +458,15 @@ describe('gcs narrative tags extension', () => {
           color: 'neutral'
         }]
       }
+    }, {
+      agreement_id: '45',
+      agency_id: '3',
+      agency_name_en: 'Hidden Agency',
+      agency_name_fr: 'Agence masquée',
+      stream_id: '32',
+      stream_name_en: 'Hidden Stream',
+      stream_name_fr: 'Volet masqué',
+      config: { enabled: true, tags: [] }
     }])
     const db = createRouteDatabase({
       selectFrom: vi.fn()
@@ -464,7 +475,14 @@ describe('gcs narrative tags extension', () => {
         .mockReturnValueOnce(linkedStreamsQuery)
     })
 
-    await expect(resolveProponentNarrativeTagSources(db, 'gcs-narrative-tags', '1', '9')).resolves.toMatchObject([
+    const canReadAgreement = vi.fn(async (_streamId: string, agreementId: string) => agreementId === '44')
+    await expect(resolveProponentNarrativeTagSources(
+      db,
+      'gcs-narrative-tags',
+      '1',
+      '9',
+      canReadAgreement
+    )).resolves.toMatchObject([
       {
         source: {
           agencyId: '1',
@@ -498,6 +516,39 @@ describe('gcs narrative tags extension', () => {
         }
       }
     ])
+    expect(canReadAgreement).toHaveBeenCalledTimes(2)
+    expect(canReadAgreement).toHaveBeenCalledWith('31', '44')
+    expect(canReadAgreement).toHaveBeenCalledWith('32', '45')
+  })
+
+  it('removes persisted tags carrying hidden linked-Agreement source metadata', () => {
+    const leadSource = {
+      agencyId: '1',
+      agencyName: { en: 'Lead Agency', fr: 'Agence responsable' }
+    }
+    expect(filterVisibleSourceTags([{
+      source: leadSource,
+      config: normalizeNarrativeTagsConfig({})
+    }], {
+      'proponent.description:en': [
+        { predefined: true, key: 'lead', label: 'Lead', source: leadSource },
+        {
+          predefined: true,
+          key: 'hidden',
+          label: 'Hidden',
+          source: {
+            agencyId: '2',
+            agencyName: { en: 'Hidden Agency', fr: 'Agence masquée' },
+            streamId: '31',
+            streamName: { en: 'Hidden Stream', fr: 'Volet masqué' }
+          }
+        }
+      ]
+    })).toEqual({
+      'proponent.description:en': [
+        { predefined: true, key: 'lead', label: 'Lead', source: leadSource }
+      ]
+    })
   })
 
   it('resolves route context only for this extension and authorized agreement stream pairs', async () => {
@@ -521,15 +572,27 @@ describe('gcs narrative tags extension', () => {
     const authContext = {
       userId: 'user-1',
       userAbilities: {
-        authorizeWithTeam: vi.fn(async () => false),
-        authorize: vi.fn(() => true)
+        authorize: vi.fn(() => false)
       }
     }
-
     await expect(resolveNarrativeTagsRouteContext({
       context: {
         $db: db,
         $authContext: authContext,
+        gcsExtension: {
+          config: {},
+          entity: {
+            scope: {
+              type: 'entity',
+              agencyId: '1',
+              path: [
+                { type: 'transfer_payment', id: '22' },
+                { type: 'transfer_payment_stream', id: '31' },
+                { type: 'fundingcaseagreement', id: '44' }
+              ]
+            }
+          }
+        },
         params: {
           extensionKey: 'gcs-narrative-tags',
           streamId: '31',
@@ -543,16 +606,53 @@ describe('gcs narrative tags extension', () => {
       agencyId: '1',
       profileId: '22'
     })
-    expect(authContext.userAbilities.authorizeWithTeam).toHaveBeenCalledWith(
-      'agreement',
-      'read',
-      expect.objectContaining({
-        path: expect.arrayContaining([{ type: 'fundingcaseagreement', id: '44' }])
-      }),
-      'user-1',
-      true,
-      db
-    )
+  })
+
+  it('does not treat an authorized sibling Agreement scope as access to the requested Agreement', async () => {
+    const agreementQuery = createQueryChain({
+      agreement_id: '44',
+      stream_id: '31',
+      profile_id: '22',
+      agency_id: '1'
+    })
+    const configQuery = createQueryChain({ enabled: true, config: { enabled: true } })
+    const db = createRouteDatabase({
+      selectFrom: vi.fn()
+        .mockReturnValueOnce(agreementQuery)
+        .mockReturnValueOnce(configQuery)
+    })
+
+    await expect(resolveNarrativeTagsRouteContext({
+      context: {
+        $db: db,
+        $authContext: {
+          userId: 'user-1',
+          userAbilities: { authorize: vi.fn(() => false) }
+        },
+        gcsExtension: {
+          config: {},
+          entity: {
+            scope: {
+              type: 'entity',
+              agencyId: '1',
+              path: [
+                { type: 'transfer_payment', id: '22' },
+                { type: 'transfer_payment_stream', id: '31' },
+                { type: 'fundingcaseagreement', id: '45' }
+              ]
+            }
+          }
+        },
+        params: {
+          extensionKey: 'gcs-narrative-tags',
+          streamId: '31',
+          agreementId: '44'
+        }
+      }
+    }, 'read')).rejects.toMatchObject({
+      statusCode: 403,
+      code: 'GCS_NARRATIVE_TAGS_FORBIDDEN'
+    })
   })
 
   it('throws instead of returning pretend success objects for invalid extension routes', async () => {
@@ -647,8 +747,7 @@ describe('gcs narrative tags extension', () => {
       $authContext: {
         userId: 'user-1',
         userAbilities: {
-          authorizeWithTeam: vi.fn(async () => true),
-          authorize: vi.fn(() => false)
+          authorize: vi.fn(() => true)
         }
       },
       params: {
@@ -716,7 +815,6 @@ describe('gcs narrative tags extension', () => {
       $authContext: {
         userId: 'user-1',
         userAbilities: {
-          authorizeWithTeam: vi.fn(async () => true),
           authorize: vi.fn(() => true)
         }
       },
@@ -776,8 +874,7 @@ describe('gcs narrative tags extension', () => {
       $authContext: {
         userId: 'user-1',
         userAbilities: {
-          authorize,
-          authorizeWithTeam: vi.fn(() => true)
+          authorize
         }
       },
       params: {
@@ -804,14 +901,60 @@ describe('gcs narrative tags extension', () => {
     })
   })
 
+  it('accepts the host-authorized exact Proponent scope for Team readers', async () => {
+    const profileQuery = createQueryChain({
+      applicant_recipient_id: '9',
+      lead_agency_id: '1',
+      agency_name_en: 'Lead Agency',
+      agency_name_fr: 'Agence responsable'
+    })
+    const leadAgencyQuery = createQueryChain({ enabled: true })
+    const linkedStreamsQuery = createQueryChain(undefined, [])
+    const textFieldTagsQuery = createQueryChain({ value: {} })
+    const authorize = vi.fn(() => false)
+    const event = createRouteEvent({
+      $db: createRouteDatabase({
+        selectFrom: vi.fn()
+          .mockReturnValueOnce(profileQuery)
+          .mockReturnValueOnce(leadAgencyQuery)
+          .mockReturnValueOnce(linkedStreamsQuery)
+          .mockReturnValueOnce(textFieldTagsQuery)
+      }),
+      $authContext: {
+        userId: 'team-user',
+        userAbilities: { authorize }
+      },
+      gcsExtension: {
+        config: {},
+        entity: {
+          scope: {
+            type: 'entity',
+            agencyId: '1',
+            path: [{ type: 'applicantrecipient', id: '9' }]
+          }
+        }
+      },
+      params: {
+        extensionKey: 'gcs-narrative-tags',
+        agencyId: '1',
+        applicantRecipientId: '9'
+      }
+    })
+
+    await expect(getProponentTagsHandler(event)).resolves.toMatchObject({
+      tags: [],
+      sources: [expect.objectContaining({ source: expect.objectContaining({ agencyId: '1' }) })]
+    })
+    expect(authorize).not.toHaveBeenCalled()
+  })
+
   it('rejects proponent tag requests without extension route identifiers', async () => {
     const event = createRouteEvent({
       $db: {},
       $authContext: {
         userId: 'user-1',
         userAbilities: {
-          authorize: vi.fn(() => true),
-          authorizeWithTeam: vi.fn(() => true)
+          authorize: vi.fn(() => true)
         }
       },
       params: {
@@ -847,6 +990,7 @@ describe('gcs narrative tags extension', () => {
       streamId?: string
       applicantRecipientId?: string
       agencyId?: string
+      agreementAccess?: GcsExtensionAgreementAccess
       rawBody: Record<string, unknown>
     }) => Promise<void>) | undefined> = {}
     vi.stubGlobal('defineNitroPlugin', (callback: (nitroApp: { hooks: { hook: (name: string, handler: NonNullable<typeof registeredHooks[string]>) => void } }) => void) => callback({
@@ -936,6 +1080,7 @@ describe('gcs narrative tags extension', () => {
     })
     const leadAgencyQuery = createQueryChain()
     const linkedStreamsQuery = createQueryChain(undefined, [{
+      agreement_id: '44',
       agency_id: '1',
       agency_name_en: 'Health Canada',
       agency_name_fr: 'Sante Canada',
@@ -987,6 +1132,13 @@ describe('gcs narrative tags extension', () => {
           $db: proponentDb
         }
       },
+      agreementAccess: {
+        listVisibleOptions: vi.fn(async () => [{
+          id: '44',
+          agreementNumber: 'AGR-44',
+          label: 'AGR-44'
+        }])
+      },
       applicantRecipientId: '2',
       agencyId: '1',
       rawBody: {
@@ -1014,6 +1166,35 @@ describe('gcs narrative tags extension', () => {
         ]
       }
     }))
+
+    const hiddenSourceDb = {
+      selectFrom: vi.fn()
+        .mockReturnValueOnce(profileQuery)
+        .mockReturnValueOnce(leadAgencyQuery)
+        .mockReturnValueOnce(linkedStreamsQuery),
+      insertInto: vi.fn(),
+      updateTable: vi.fn()
+    }
+    await expect(registeredHooks['applicantrecipient:profile:updated']?.({
+      event: { context: { $db: hiddenSourceDb } },
+      agreementAccess: {
+        listVisibleOptions: vi.fn(async () => [])
+      },
+      applicantRecipientId: '2',
+      agencyId: '1',
+      rawBody: {
+        extensions: {
+          'gcs-narrative-tags': {
+            textFieldTags: {
+              'proponent.description': [
+                { predefined: true, key: 'stream-priority', label: 'Stream priority', source }
+              ]
+            }
+          }
+        }
+      }
+    })).resolves.toBeUndefined()
+    expect(hiddenSourceDb.insertInto).not.toHaveBeenCalled()
   })
 
   it('uses the tag extractor package model assets and a bundled worker configured for local model loading', async () => {

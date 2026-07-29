@@ -2,6 +2,7 @@ import { defineGcsExtensionNitroPlugin, getGcsExtensionHookDatabase } from '@gcs
 import {
   NARRATIVE_TAGS_EXTENSION_KEY,
   NARRATIVE_TAGS_PROPONENT_OWNER_TYPE,
+  createAgreementReadPredicate,
   requireNarrativeTagsRouteDatabase,
   resolveProponentNarrativeTagSources,
   setPersistedNarrativeTags,
@@ -137,7 +138,8 @@ export default defineGcsExtensionNitroPlugin(nitroApp => {
       db,
       NARRATIVE_TAGS_EXTENSION_KEY,
       payload.agencyId,
-      payload.applicantRecipientId
+      payload.applicantRecipientId,
+      createAgreementReadPredicate(payload.agreementAccess, db)
     )
 
     if (sources.length === 0) {
