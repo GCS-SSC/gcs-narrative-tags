@@ -2,13 +2,22 @@ import { defineGcsExtensionRouteHandler } from '@gcs-ssc/extensions/server'
 import {
   NARRATIVE_TAGS_EXTENSION_KEY,
   NARRATIVE_TAGS_PROPONENT_OWNER_TYPE,
+  createAgreementReadPredicate,
   createExtensionRouteErrorResponse,
+  filterVisibleSourceTags,
   getPersistedTextFieldTags,
+  isExactAuthorizedScope,
   requireNarrativeTagsRouteDatabase,
   resolveProponentNarrativeTagSources,
 } from '../../../../../../../narrative-tags-route.ts'
 
-export default defineGcsExtensionRouteHandler(async ({ params, auth, db: rawDb }) => {
+export default defineGcsExtensionRouteHandler(async ({
+  params,
+  auth,
+  authorizedScope,
+  agreementAccess,
+  db: rawDb
+}) => {
   const extensionKey = params.extensionKey
   const agencyId = params.agencyId
   const applicantRecipientId = params.applicantRecipientId
@@ -26,19 +35,13 @@ export default defineGcsExtensionRouteHandler(async ({ params, auth, db: rawDb }
     return createExtensionRouteErrorResponse(401, 'AUTH_UNAUTHORIZED', 'Unauthorized.')
   }
 
-  const db = requireNarrativeTagsRouteDatabase(rawDb)
-  const sources = await resolveProponentNarrativeTagSources(
-    db,
-    NARRATIVE_TAGS_EXTENSION_KEY,
+  const scope = {
+    type: 'entity' as const,
     agencyId,
-    applicantRecipientId
-  )
-
-  if (sources.length === 0) {
-    return createExtensionRouteErrorResponse(404, 'APPLICANT_RECIPIENT_PROFILE_NOT_FOUND', 'Proponent not found.')
+    path: [{ type: 'applicantrecipient', id: applicantRecipientId }]
   }
-
-  const canRead = authContext.userAbilities.authorize('applicant_recipient', 'read', {
+  const canRead = isExactAuthorizedScope(authorizedScope, scope)
+    || authContext.userAbilities.authorize('applicant_recipient', 'read', {
     type: 'agency',
     agencyId
   })
@@ -46,11 +49,27 @@ export default defineGcsExtensionRouteHandler(async ({ params, auth, db: rawDb }
     return createExtensionRouteErrorResponse(403, 'AUTH_FORBIDDEN', 'Forbidden.')
   }
 
-  const textFieldTags = await getPersistedTextFieldTags(
+  const db = requireNarrativeTagsRouteDatabase(rawDb)
+  const sources = await resolveProponentNarrativeTagSources(
     db,
     NARRATIVE_TAGS_EXTENSION_KEY,
-    NARRATIVE_TAGS_PROPONENT_OWNER_TYPE,
-    applicantRecipientId
+    agencyId,
+    applicantRecipientId,
+    createAgreementReadPredicate(agreementAccess, rawDb)
+  )
+
+  if (sources.length === 0) {
+    return createExtensionRouteErrorResponse(404, 'APPLICANT_RECIPIENT_PROFILE_NOT_FOUND', 'Proponent not found.')
+  }
+
+  const textFieldTags = filterVisibleSourceTags(
+    sources,
+    await getPersistedTextFieldTags(
+      db,
+      NARRATIVE_TAGS_EXTENSION_KEY,
+      NARRATIVE_TAGS_PROPONENT_OWNER_TYPE,
+      applicantRecipientId
+    )
   )
 
   return {
