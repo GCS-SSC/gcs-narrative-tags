@@ -67,13 +67,24 @@ const getSharedWorkerState = (): SharedWorkerState => {
 const getSharedWorker = () => {
   const state = getSharedWorkerState()
   if (!state.worker) {
-    state.worker = new Worker('/extensions/gcs-narrative-tags/client/worker.js', { type: 'module' })
-    state.worker.addEventListener('message', event => {
+    const worker = new Worker('/extensions/gcs-narrative-tags/client/worker.js', { type: 'module' })
+    state.worker = worker
+    worker.addEventListener('message', event => {
       const message = event.data as WorkerMessage
       for (const listener of state.listeners) {
         listener(message)
       }
     })
+    const handleWorkerFailure = () => {
+      if (state.worker !== worker) return
+      state.worker = null
+      worker.terminate()
+      for (const listener of state.listeners) {
+        listener({ kind: 'error' })
+      }
+    }
+    worker.addEventListener('error', handleWorkerFailure)
+    worker.addEventListener('messageerror', handleWorkerFailure)
   }
 
   return state.worker
@@ -267,9 +278,9 @@ const loadPersistedTags = async () => {
     }>(routeUrl.value)
     sourceConfigs.value = normalizeNarrativeTagsSourceConfigs(response.sources)
     selectedTags.value = resolveFetchedNarrativeTags(response, fieldStorageKey.value, findTagDefinition)
-  } catch (caughtError: unknown) {
+  } catch {
     selectedTags.value = []
-    error.value = caughtError instanceof Error ? caughtError.message : text('unavailable')
+    error.value = text('unavailable')
   }
 }
 
@@ -277,13 +288,14 @@ const loadPersistedTags = async () => {
  * Applies only the latest worker response and substitutes keyword suggestions when worker scoring fails.
  */
 const handleWorkerMessage = (message: WorkerMessage) => {
-  if (message.requestId !== latestRequestId.value) {
+  const isSharedWorkerFailure = message.kind === 'error' && message.requestId === undefined
+  if (!isSharedWorkerFailure && message.requestId !== latestRequestId.value) {
     return
   }
 
   isLoading.value = false
   if (message.kind === 'error') {
-    error.value = message.error || text('unavailable')
+    error.value = text('unavailable')
     const target = entityTarget.value
     suggestions.value = target
       ? resolveKeywordFallbackSuggestions(target.text, availableTagDefinitions.value, targetConfig.value)
@@ -339,9 +351,9 @@ const scheduleSuggestions = () => {
         requestId,
         payload: buildNarrativeTagsWorkerPayload(targetText, activeLocale.value, configForTarget, availableTagDefinitions.value)
       })
-    } catch (caughtError: unknown) {
+    } catch {
       isLoading.value = false
-      error.value = caughtError instanceof Error ? caughtError.message : text('unavailable')
+      error.value = text('unavailable')
       suggestions.value = resolveKeywordFallbackSuggestions(targetText, availableTagDefinitions.value, configForTarget)
     }
   }, SCORE_REQUEST_DEBOUNCE_MS)

@@ -298,4 +298,31 @@ describe('NarrativeTagsSlot', () => {
     expect(wrapper.text()).toContain('Tag suggestions unavailable')
     expect(wrapper.find('button').exists()).toBe(true)
   })
+
+  it('falls back and resets the shared worker after an asynchronous worker failure', async () => {
+    stubApiFetch({ tags: [] })
+    const listeners = new Map<string, () => void>()
+    const terminateMock = vi.fn()
+    vi.stubGlobal('Worker', class {
+      addEventListener(type: string, handler: () => void) {
+        listeners.set(type, handler)
+      }
+
+      postMessage() {}
+
+      terminate() {
+        terminateMock()
+      }
+    })
+
+    const wrapper = mountSlot()
+    await vi.runAllTimersAsync()
+    listeners.get('messageerror')?.()
+    await wrapper.vm.$nextTick()
+
+    expect(terminateMock).toHaveBeenCalledOnce()
+    expect(wrapper.text()).toContain('Tag suggestions unavailable')
+    expect(wrapper.find('button').exists()).toBe(true)
+    expect((globalThis as any).__gcsNarrativeTagsWorkerState.worker).toBeNull()
+  })
 })
