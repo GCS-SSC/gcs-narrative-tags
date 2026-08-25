@@ -2,7 +2,7 @@ import { defineGcsExtension } from '@gcs-ssc/extensions'
 
 export default defineGcsExtension({
   key: 'gcs-narrative-tags',
-  sdkVersion: '^0.1.0',
+  sdkVersion: '^0.2.0',
   requiredHostCapabilities: [
     'stream-config-modal',
     'textarea-slots',
