@@ -14,6 +14,14 @@ import { createNarrativeTagsUserError } from './errors'
 import { normalizeNarrativeTagsConfig } from '../components/narrative-tags'
 import type { NarrativeTagValue } from '../components/narrative-tags'
 
+type AgreementProfileTagPayload = {
+  event: { context?: { $db?: unknown } }
+  db?: unknown
+  agreementId: string
+  streamId: string
+  rawBody: Record<string, unknown>
+}
+
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null
 
 const resolveAgreementDescriptionTags = (rawBody: Record<string, unknown>): unknown => {
@@ -76,7 +84,7 @@ const validateProponentTextFieldTags = (
  * Registers profile-update hooks that validate and persist agreement and applicant-recipient narrative tags.
  */
 export default defineGcsExtensionNitroPlugin(nitroApp => {
-  nitroApp.hooks.hook('agreement:profile:updated', async payload => {
+  const persistAgreementProfileTags = async (payload: AgreementProfileTagPayload) => {
     const requestedTags = resolveAgreementDescriptionTags(payload.rawBody)
     const textFieldTags = resolveTextFieldTags(payload.rawBody)
     if (requestedTags === undefined && !textFieldTags) {
@@ -125,7 +133,10 @@ export default defineGcsExtensionNitroPlugin(nitroApp => {
         normalizedTextFieldTags
       )
     }
-  })
+  }
+
+  nitroApp.hooks.hook('agreement:profile:created', persistAgreementProfileTags)
+  nitroApp.hooks.hook('agreement:profile:updated', persistAgreementProfileTags)
 
   nitroApp.hooks.hook('applicantrecipient:profile:updated', async payload => {
     const textFieldTags = resolveTextFieldTags(payload.rawBody)

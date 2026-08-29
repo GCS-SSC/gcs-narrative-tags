@@ -4,7 +4,9 @@ import {
   buildNarrativeTagsWorkerPayload,
   filterValidPersistedNarrativeTags,
   normalizeNarrativeTagsSourceConfigs,
+  resolveEmbeddedNarrativeTags,
   resolveFetchedNarrativeTags,
+  resolveKeywordFallbackSuggestions,
   resolveNarrativeTagsRouteUrl,
   resolveNarrativeTagsWorkerSuggestions
 } from '../../components/narrative-tags-slot-helpers'
@@ -184,5 +186,82 @@ describe('narrative tags slot helpers', () => {
       targetSuggestions: 3,
       targetDynamicTags: 2
     })
+  })
+
+  it('fails closed for incomplete routes, source lists, and persisted tag arrays', () => {
+    expect(resolveNarrativeTagsRouteUrl({
+      targetKey: 'proponent.description', label: 'Proponent', text: 'Text', agencyId: '1', extensions: {}
+    })).toBe('')
+    expect(normalizeNarrativeTagsSourceConfigs(undefined)).toEqual([])
+    expect(filterValidPersistedNarrativeTags('invalid', () => true)).toEqual([])
+  })
+
+  it('reads field-specific embedded tags only from an object extension payload', () => {
+    const target: NarrativeTagsEntityTarget = {
+      targetKey: 'agreement.description',
+      label: 'Agreement',
+      text: 'Text',
+      streamId: '1',
+      ownerId: '2',
+      extensions: {
+        'gcs-narrative-tags': {
+          textFieldTags: {
+            description: [{ predefined: true, key: 'known', label: 'Known' }]
+          }
+        }
+      }
+    }
+    expect(resolveEmbeddedNarrativeTags(target, 'description', key => key === 'known'))
+      .toEqual([{ predefined: true, key: 'known', label: 'Known' }])
+    expect(resolveEmbeddedNarrativeTags(target, '', () => true)).toEqual([])
+    expect(resolveEmbeddedNarrativeTags(null, 'description', () => true)).toEqual([])
+    expect(resolveEmbeddedNarrativeTags({
+      ...target, extensions: { 'gcs-narrative-tags': { textFieldTags: 'invalid' } }
+    }, 'description', () => true)).toEqual([])
+  })
+
+  it('selects fetched field tags with entity-tag fallback', () => {
+    const response = {
+      tags: [{ predefined: false as const, label: 'Legacy' }],
+      textFieldTags: {
+        description: [{ predefined: false as const, label: 'Field' }]
+      }
+    }
+    expect(resolveFetchedNarrativeTags(response, 'description', () => undefined))
+      .toEqual([{ predefined: false, label: 'Field' }])
+    expect(resolveFetchedNarrativeTags(response, 'missing', () => undefined))
+      .toEqual([{ predefined: false, label: 'Legacy' }])
+  })
+
+  it('applies fail-closed worker defaults when target configuration is absent', () => {
+    expect(resolveNarrativeTagsWorkerSuggestions([
+      { predefined: true, key: 'known', score: 0.9 },
+      { predefined: false, label: 'Dynamic', score: 0.9 }
+    ], null, () => undefined)).toEqual([])
+
+    expect(buildNarrativeTagsWorkerPayload('Text', 'en', null, [])).toMatchObject({
+      minScore: 1,
+      maxSuggestions: 0,
+      minDynamicScore: 1,
+      maxDynamicTags: 0,
+      allowDynamicTagSuggestions: false,
+      useEmbeddingCache: false,
+      useBrowserCache: false
+    })
+    expect(buildNarrativeTagsSuggestionWatchState(null, 'en', [], false, null)).toEqual({
+      text: '',
+      target: '',
+      locale: 'en',
+      keys: '',
+      enabled: false,
+      targetEnabled: false,
+      targetCustom: false,
+      targetDynamic: false,
+      targetScore: 0,
+      targetDynamicScore: 0,
+      targetSuggestions: 0,
+      targetDynamicTags: 0
+    })
+    expect(resolveKeywordFallbackSuggestions('Text', [], null)).toEqual([])
   })
 })

@@ -1,4 +1,5 @@
-import type { GcsTextareaKnownTargetKey } from '@gcs-ssc/extensions'
+import type { GcsTextareaKnownTargetKey, JsonValue } from '@gcs-ssc/extensions'
+import { sql } from 'kysely'
 import type {
   GcsExtensionRouteContext,
   GcsExtensionRouteEvent
@@ -18,6 +19,8 @@ const NARRATIVE_TAGS_OWNER_TYPE = 'fundingcaseagreement'
 export const NARRATIVE_TAGS_PROPONENT_OWNER_TYPE = 'applicantrecipient'
 const NARRATIVE_TAGS_CONFIG_KEY = 'agreement-description-tags'
 const NARRATIVE_TAGS_TEXT_FIELD_CONFIG_KEY = 'text-field-tags'
+
+const narrativeTagsJsonbValue = (value: unknown) => sql<JsonValue>`${JSON.stringify(value)}::jsonb`
 
 interface QueryChain {
   innerJoin: (...args: unknown[]) => QueryChain
@@ -551,7 +554,7 @@ export const setPersistedNarrativeTags = async (
   if (existing) {
     return await db
       .updateTable('extensions.kv_entry')
-      .set({ value: tags })
+      .set({ value: narrativeTagsJsonbValue(tags) })
       .where('id', '=', existing.id)
       .returningAll()
       .executeTakeFirst()
@@ -564,7 +567,7 @@ export const setPersistedNarrativeTags = async (
       owner_type: NARRATIVE_TAGS_OWNER_TYPE,
       owner_id: agreementId,
       config_key: NARRATIVE_TAGS_CONFIG_KEY,
-      value: tags
+      value: narrativeTagsJsonbValue(tags)
     })
     .returningAll()
     .executeTakeFirst()
@@ -648,7 +651,7 @@ export const setPersistedTextFieldTags = async (
   if (existing) {
     return await db
       .updateTable('extensions.kv_entry')
-      .set({ value: tagsByField })
+      .set({ value: narrativeTagsJsonbValue(tagsByField) })
       .where('id', '=', existing.id)
       .returningAll()
       .executeTakeFirst()
@@ -661,7 +664,7 @@ export const setPersistedTextFieldTags = async (
       owner_type: ownerType,
       owner_id: ownerId,
       config_key: NARRATIVE_TAGS_TEXT_FIELD_CONFIG_KEY,
-      value: tagsByField
+      value: narrativeTagsJsonbValue(tagsByField)
     })
     .returningAll()
     .executeTakeFirst()

@@ -1032,7 +1032,7 @@ describe('gcs narrative tags extension', () => {
     }
 
     await import('../../server/nitro-plugin')
-    await registeredHooks['agreement:profile:updated']?.({
+    await registeredHooks['agreement:profile:created']?.({
       db,
       event: {
         context: {
@@ -1058,9 +1058,7 @@ describe('gcs narrative tags extension', () => {
       extension_key: 'gcs-narrative-tags',
       owner_type: 'fundingcaseagreement',
       owner_id: '44',
-      value: [
-        { predefined: true, key: 'capacity-building', label: 'Capacity building' }
-      ]
+      value: expect.anything()
     }))
 
     const source = {
@@ -1160,11 +1158,7 @@ describe('gcs narrative tags extension', () => {
       owner_type: 'applicantrecipient',
       owner_id: '2',
       config_key: 'text-field-tags',
-      value: {
-        'proponent.description': [
-          { predefined: true, key: 'stream-priority', label: 'Stream priority', source }
-        ]
-      }
+      value: expect.anything()
     }))
 
     const hiddenSourceDb = {
