@@ -37,3 +37,13 @@ bun run build:worker
 bun run typecheck
 bun run test:unit
 ```
+
+## Translation ownership
+
+Requires SDK 0.3.0. Interface catalogs live in this package's `i18n/` directory.
+Define matching English/French keys and named placeholders with
+`defineGcsExtensionMessages`, then use `useExtensionI18n(catalog)` in UI or
+`translateGcsExtensionMessage` in shared/server code. There is no host message
+lookup or fallback. Keep extension-authored common labels and validation text in
+this package; treat bilingual domain values and already-localized errors as data.
+The package owns translation tests and includes catalogs in its coverage inventory.

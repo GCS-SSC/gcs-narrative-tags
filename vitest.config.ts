@@ -2,6 +2,7 @@ import vue from '@vitejs/plugin-vue'
 import { defineConfig } from 'vitest/config'
 
 export const NARRATIVE_TAGS_COVERAGE_INCLUDE = [
+  'i18n/**/*.ts',
   'client/worker-source.js',
   'components/**/*.{ts,vue}',
   'extension.config.ts',

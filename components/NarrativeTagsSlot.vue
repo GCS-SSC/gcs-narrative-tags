@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { NarrativeTagsSlotMessages } from '../i18n/NarrativeTagsSlot'
+
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import type { Ref } from 'vue'
 import type { GcsExtensionJsonConfig, GcsExtensionSlotContext } from '@gcs-ssc/extensions'
@@ -114,7 +116,7 @@ const {
   context?: GcsExtensionSlotContext
 }>()
 
-const { locale } = useExtensionI18n()
+const { locale, t: text } = useExtensionI18n(NarrativeTagsSlotMessages)
 const api = useExtensionApi('gcs-narrative-tags')
 
 const normalizedConfig = computed(() => normalizeNarrativeTagsConfig(config))
@@ -174,19 +176,6 @@ const error: Ref<string> = ref('')
 const latestRequestId: Ref<number> = ref(0)
 const pendingTimer: Ref<ReturnType<typeof setTimeout> | null> = ref(null)
 const unsubscribeWorker: Ref<(() => void) | null> = ref(null)
-
-const labels = {
-  title: { en: 'Suggested tags', fr: 'Étiquettes suggérées' },
-  unavailable: { en: 'Tag suggestions unavailable', fr: 'Suggestions d’étiquettes indisponibles' },
-  select: { en: 'Select tags', fr: 'Sélectionner les étiquettes' },
-  customPlaceholder: { en: 'Add custom tags', fr: 'Ajouter des étiquettes personnalisées' },
-  noAgreement: { en: 'Save this record to persist tags.', fr: 'Enregistrez cet enregistrement pour conserver les étiquettes.' }
-} as const
-
-const text = (key: keyof typeof labels) => {
-  const item = labels[key]
-  return locale.value === 'fr' ? item.fr : item.en
-}
 
 const shouldRender = computed(() =>
   normalizedConfig.value.enabled

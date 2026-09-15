@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { NarrativeTagsConfigMessages } from '../i18n/NarrativeTagsConfig'
+
 import { computed, ref, watch } from 'vue'
 import type { Ref } from 'vue'
 import { GCS_TEXTAREA_TARGETS } from '@gcs-ssc/extensions'
@@ -28,56 +30,10 @@ const model = defineModel<Record<string, JsonValue>>({
   default: () => ({})
 })
 
-const { locale } = useExtensionI18n()
+const { locale, t: text } = useExtensionI18n(NarrativeTagsConfigMessages)
 
 const state: Ref<NarrativeTagsConfig> = ref(normalizeNarrativeTagsConfig(model.value))
 const activeTarget: Ref<GcsTextareaKnownTargetKey> = ref('agreement.description')
-
-const labels = {
-  title: { en: 'Narrative tag setup', fr: 'Configuration des étiquettes narratives' },
-  description: {
-    en: 'Configure the text fields and predefined tag vocabulary used for tag suggestions.',
-    fr: 'Configurez les champs texte et le vocabulaire prédéfini utilisés pour les suggestions d’étiquettes.'
-  },
-  targetFields: { en: 'Target field', fr: 'Champ ciblé' },
-  targetDescription: {
-    en: 'Choose which narrative field this configuration applies to before editing the suggestion settings.',
-    fr: 'Choisissez le champ narratif auquel cette configuration s’applique avant de modifier les paramètres de suggestion.'
-  },
-  target: { en: 'Target', fr: 'Cible' },
-  enabled: { en: 'Enable tag suggestions for this target', fr: 'Activer les suggestions d’étiquettes pour cette cible' },
-  allowCustomTags: { en: 'Allow custom tags', fr: 'Autoriser les étiquettes personnalisées' },
-  allowDynamicTagSuggestions: { en: 'Suggest dynamic tags', fr: 'Suggérer des étiquettes dynamiques' },
-  minScore: { en: 'Minimum score', fr: 'Score minimal' },
-  maxSuggestions: { en: 'Maximum suggestions', fr: 'Nombre maximal de suggestions' },
-  minDynamicScore: { en: 'Minimum dynamic score', fr: 'Score dynamique minimal' },
-  maxDynamicTags: { en: 'Maximum dynamic tags', fr: 'Nombre maximal d’étiquettes dynamiques' },
-  dynamicNgramMin: { en: 'Minimum phrase words', fr: 'Mots minimaux par expression' },
-  dynamicNgramMax: { en: 'Maximum phrase words', fr: 'Mots maximaux par expression' },
-  semanticWeight: { en: 'Semantic weight', fr: 'Pondération sémantique' },
-  lexicalWeight: { en: 'Lexical weight', fr: 'Pondération lexicale' },
-  exactAliasBoost: { en: 'Exact alias boost', fr: 'Bonus d’alias exact' },
-  negationPenalty: { en: 'Negation penalty', fr: 'Pénalité de négation' },
-  negationWindow: { en: 'Negation window', fr: 'Fenêtre de négation' },
-  useEmbeddingCache: { en: 'Cache embeddings', fr: 'Mettre les plongements en cache' },
-  useBrowserCache: { en: 'Cache model files', fr: 'Mettre les fichiers du modèle en cache' },
-  scoring: { en: 'Scoring', fr: 'Notation' },
-  tags: { en: 'Tags', fr: 'Étiquettes' },
-  addTag: { en: 'Add tag', fr: 'Ajouter une étiquette' },
-  removeTag: { en: 'Remove tag', fr: 'Supprimer l’étiquette' },
-  key: { en: 'Key', fr: 'Clé' },
-  labelEn: { en: 'English label', fr: 'Libellé anglais' },
-  labelFr: { en: 'French label', fr: 'Libellé français' },
-  descriptionEn: { en: 'English description', fr: 'Description anglaise' },
-  descriptionFr: { en: 'French description', fr: 'Description française' },
-  aliases: { en: 'Aliases', fr: 'Alias' },
-  color: { en: 'Color', fr: 'Couleur' }
-} as const
-
-const text = (key: keyof typeof labels) => {
-  const item = labels[key]
-  return locale.value === 'fr' ? item.fr : item.en
-}
 
 const colorOptions = computed(() => AGREEMENT_TAG_COLORS.map(color => ({
   label: color,
