@@ -6,11 +6,12 @@
     "build:worker": "bun x esbuild client/worker-source.js --bundle --format=esm --platform=browser --target=es2022 --outfile=client/worker.js",
     "test:unit": "vitest run --config vitest.config.ts",
     "test:coverage": "vitest run --coverage --config vitest.config.ts",
-    "typecheck": "vue-tsc --noEmit"
+    "typecheck": "vue-tsc --noEmit",
+    "test:audit": "vitest run --config vitest.audit.config.ts"
   },
   "dependencies": {
     "@browser-tag-extractor/core": "github:omarmir/tag-extractor#pkg-v0.1.0",
-    "@gcs-ssc/extensions": "^0.3.0",
+    "@gcs-ssc/extensions": "^0.3.2",
     "@huggingface/transformers": "^4.1.0",
     "onnxruntime-web": "1.26.0-dev.20260416-b7804b056c"
   },
