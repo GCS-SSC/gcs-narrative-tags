@@ -1187,7 +1187,7 @@ describe('gcs narrative tags extension', () => {
           }
         }
       }
-    })).resolves.toBeUndefined()
+    })).rejects.toMatchObject({ code: 'GCS_NARRATIVE_TAGS_INVALID_TAGS' })
     expect(hiddenSourceDb.insertInto).not.toHaveBeenCalled()
   })
 

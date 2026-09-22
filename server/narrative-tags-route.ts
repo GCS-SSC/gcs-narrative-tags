@@ -338,29 +338,28 @@ const normalizeSourceAbbreviation = (
 }
 
 /**
- * Resolves enabled lead-agency and linked-stream tag sources for a confirmed applicant recipient.
+ * Resolves enabled sources in the explicitly selected agency context.
  */
 export const resolveProponentNarrativeTagSources = async (
   db: NarrativeTagsRouteDatabase,
   extensionKey: string,
-  leadAgencyId: string,
+  selectedAgencyId: string,
   applicantRecipientId: string,
   canReadAgreement?: (streamId: string, agreementId: string) => Promise<boolean>
 ): Promise<NarrativeTagSourceConfig[]> => {
   const profile = await db
     .selectFrom('Applicant_Recipient_Profile')
-    .leftJoin('Agency_Profile', 'Agency_Profile.id', 'Applicant_Recipient_Profile.egcs_ar_leadagency')
+    .innerJoin('Agency_Profile', join => join.on('Agency_Profile.id', '=', selectedAgencyId))
     .select([
       'Applicant_Recipient_Profile.id as applicant_recipient_id',
-      'Applicant_Recipient_Profile.egcs_ar_leadagency as lead_agency_id',
       'Agency_Profile.egcs_ay_name_en as agency_name_en',
       'Agency_Profile.egcs_ay_name_fr as agency_name_fr',
       'Agency_Profile.egcs_ay_abbreviation_en as agency_abbreviation_en',
       'Agency_Profile.egcs_ay_abbreviation_fr as agency_abbreviation_fr'
     ])
     .where('Applicant_Recipient_Profile.id', '=', applicantRecipientId)
-    .where('Applicant_Recipient_Profile.egcs_ar_leadagency', '=', leadAgencyId)
     .where('Applicant_Recipient_Profile._deleted', '=', false)
+    .where('Agency_Profile._deleted', '=', false)
     .executeTakeFirst()
 
   if (!profile) {
@@ -368,20 +367,20 @@ export const resolveProponentNarrativeTagSources = async (
   }
 
   const sources: NarrativeTagSourceConfig[] = []
-  const leadAgencyEnabled = await db
+  const selectedAgencyEnabled = await db
     .selectFrom('extensions.agency_enablement')
     .select('enabled')
     .where('extension_key', '=', extensionKey)
-    .where('agency_id', '=', leadAgencyId)
+    .where('agency_id', '=', selectedAgencyId)
     .where('enabled', '=', true)
     .where('_deleted', '=', false)
     .executeTakeFirst()
 
-  if (leadAgencyEnabled?.enabled === true) {
+  if (selectedAgencyEnabled?.enabled === true) {
     sources.push({
       source: {
-        agencyId: leadAgencyId,
-        agencyName: normalizeSourceName(profile.agency_name_en, profile.agency_name_fr, leadAgencyId),
+        agencyId: selectedAgencyId,
+        agencyName: normalizeSourceName(profile.agency_name_en, profile.agency_name_fr, selectedAgencyId),
         agencyAbbreviation: normalizeSourceAbbreviation(profile.agency_abbreviation_en, profile.agency_abbreviation_fr)
       },
       config: normalizeNarrativeTagsConfig({})
@@ -433,6 +432,7 @@ export const resolveProponentNarrativeTagSources = async (
       'extensions.stream_configuration.config as config'
     ])
     .where('Funding_Case_Agreement_Applicant_Recipient.egcs_fc_applicantrecipient', '=', applicantRecipientId)
+    .where('Transfer_Payment_Profile.egcs_tp_agency', '=', selectedAgencyId)
     .where('Funding_Case_Agreement_Applicant_Recipient._deleted', '=', false)
     .where('Funding_Case_Agreement_Profile._deleted', '=', false)
     .where('Transfer_Payment_Stream._deleted', '=', false)

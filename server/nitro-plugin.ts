@@ -153,8 +153,9 @@ export default defineGcsExtensionNitroPlugin(nitroApp => {
       createAgreementReadPredicate(payload.agreementAccess, db)
     )
 
+    if (sources.length === 0 && Object.keys(textFieldTags).length === 0) return
     if (sources.length === 0) {
-      return
+      throw createNarrativeTagsUserError('GCS_NARRATIVE_TAGS_INVALID_TAGS', 'extensions.gcs-narrative-tags.textFieldTags')
     }
 
     const normalizedTextFieldTags = validateProponentTextFieldTags(sources, textFieldTags)
