@@ -349,7 +349,7 @@ export const resolveProponentNarrativeTagSources = async (
 ): Promise<NarrativeTagSourceConfig[]> => {
   const profile = await db
     .selectFrom('Applicant_Recipient_Profile')
-    .innerJoin('Agency_Profile', join => join.on('Agency_Profile.id', '=', selectedAgencyId))
+    .innerJoin('Agency_Profile', (join: JoinChain) => join.on('Agency_Profile.id', '=', selectedAgencyId))
     .select([
       'Applicant_Recipient_Profile.id as applicant_recipient_id',
       'Agency_Profile.egcs_ay_name_en as agency_name_en',
