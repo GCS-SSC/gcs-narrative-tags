@@ -15,11 +15,11 @@ Stream configuration exposes the extractor scoring controls used by the worker, 
 The grouped description slots expect entity-level bilingual description context:
 
 - `kind: 'agreement.descriptions'` with `streamId`, `agreementId`, and `descriptions: { en, fr }`
-- `kind: 'proponent.descriptions'` with `agencyId`, `applicantRecipientId`, and `descriptions: { en, fr }`
+- `kind: 'proponent.descriptions'` with `applicantRecipientId`, host-resolved `agencies`, and `descriptions: { en, fr }`
 
 The extension combines the English and French text into one extractor input and persists one entity-level tag payload for the configured target.
 
-Proponent tags are source-aware. The extension renders when the lead agency has Narrative Tags enabled or when the proponent is attached to an agreement whose agency and stream have Narrative Tags enabled. Each selected tag stores the agency and, when available, stream that supplied the tag definition so the UI and downstream model inputs can show where the tag came from.
+Proponent tags are source-aware. The extension renders once when any eligible agency has Narrative Tags enabled or when the proponent is attached to an agreement whose agency and stream have Narrative Tags enabled. It combines enabled sources from all eligible agencies. Each selected tag stores the agency and, when available, stream that supplied the tag definition so the UI and downstream model inputs can show where the tag came from.
 
 The proponent availability rule is implemented by the extension runtime resolver at `server/runtime.ts`; the host only passes the proponent runtime context to the extension.
 

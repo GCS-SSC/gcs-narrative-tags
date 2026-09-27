@@ -468,7 +468,10 @@ export const resolveNarrativeTagsDescriptionsContext = (context: Record<string, 
     },
     streamId: asString(context.streamId),
     agreementId: asString(context.agreementId),
-    agencyId: asString(context.agencyId),
+    agencyId: asString(context.kind === 'proponent.descriptions'
+      ? (Array.isArray(context.agencies)
+          ? (context.agencies[0] as { agencyId?: unknown } | undefined)?.agencyId : undefined)
+      : context.agencyId),
     applicantRecipientId: asString(context.applicantRecipientId || context.proponentId || context.ownerId),
     extensions,
     setExtensionPayload

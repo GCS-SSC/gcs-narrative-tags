@@ -278,7 +278,8 @@ describe('gcs narrative tags extension', () => {
         en: 'Local training organization',
         fr: 'Organisme local de formation'
       },
-      agencyId: '1',
+      agencyId: 'legacy',
+      agencies: [{ agencyId: '1' }, { agencyId: '2' }],
       applicantRecipientId: '2'
     })).toMatchObject({
       targetKey: 'proponent.description',

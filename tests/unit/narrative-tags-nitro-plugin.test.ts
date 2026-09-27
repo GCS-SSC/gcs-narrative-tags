@@ -201,4 +201,21 @@ describe('narrative tags Nitro hooks', () => {
       code: 'GCS_NARRATIVE_TAGS_INVALID_TAGS', path: 'extensions.gcs-narrative-tags.textFieldTags'
     })
   })
+
+  it('validates app-wide Proponent tags against sources from every authorized agency', async () => {
+    resolveSourcesMock.mockResolvedValueOnce([{ source: { agencyId: '1' }, config: {} }])
+      .mockResolvedValueOnce([{ source: { agencyId: '2' }, config: {} }])
+    const { hooks, db } = await loadHooks()
+    const tags = [{ predefined: true, key: 'second-agency-tag', source: { agencyId: '2' } }]
+    await hooks['applicantrecipient:profile:updated']!({
+      db, agencyIds: ['1', '2'], applicantRecipientId: 'recipient-1', rawBody: {
+        extensions: { 'gcs-narrative-tags': { textFieldTags: { 'proponent.description:en': tags } } }
+      }
+    })
+    expect(resolveSourcesMock).toHaveBeenCalledTimes(2)
+    expect(validateRequestedSourceTagsMock).toHaveBeenCalledWith([
+      { source: { agencyId: '1' }, config: {} },
+      { source: { agencyId: '2' }, config: {} }
+    ], tags, 'en', 'proponent.description')
+  })
 })

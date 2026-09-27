@@ -260,13 +260,23 @@ const loadPersistedTags = async () => {
   }
 
   try {
-    const response = await api.get<{
+    type TagsResponse = {
       tags: NarrativeTagValue[]
       textFieldTags?: Record<string, NarrativeTagValue[]>
       sources?: NarrativeTagSourceConfig[]
-    }>(routeUrl.value)
-    sourceConfigs.value = normalizeNarrativeTagsSourceConfigs(response.sources)
-    selectedTags.value = resolveFetchedNarrativeTags(response, fieldStorageKey.value, findTagDefinition)
+    }
+    const proponentAgencies = context && 'agencies' in context && Array.isArray(context.agencies)
+      ? context.agencies.filter((agency): agency is { agencyId: string } =>
+          typeof agency === 'object' && agency !== null && 'agencyId' in agency && typeof agency.agencyId === 'string')
+      : []
+    const urls = entityTarget.value?.targetKey === 'proponent.description' && proponentAgencies.length > 0
+      ? proponentAgencies.map(agency => `/agencies/${encodeURIComponent(agency.agencyId)}/applicant-recipients/${encodeURIComponent(entityTarget.value!.ownerId ?? '')}/tags`)
+      : [routeUrl.value]
+    const responses = await Promise.all(urls.map(url => api.get<TagsResponse>(url)))
+    sourceConfigs.value = normalizeNarrativeTagsSourceConfigs(responses.flatMap(response => response.sources ?? []))
+    selectedTags.value = [...new Map(responses.flatMap(response =>
+      resolveFetchedNarrativeTags(response, fieldStorageKey.value, findTagDefinition))
+      .map(tag => [tagValueKey(tag), tag])).values()]
   } catch {
     selectedTags.value = []
     error.value = text('unavailable')

@@ -269,7 +269,7 @@ describe('NarrativeTagsSlot', () => {
         en: 'Community training for local applicants.',
         fr: 'Formation communautaire pour les demandeurs locaux.'
       },
-      agencyId: 'agency/1',
+      agencies: [{ agencyId: 'agency/1', nameEn: 'First', nameFr: 'Première', config: {} }],
       applicantRecipientId: 'recipient 2',
       extensions: {},
       setExtensionPayload: setExtensionPayloadMock
@@ -281,6 +281,56 @@ describe('NarrativeTagsSlot', () => {
       'proponent.description': [{ predefined: false, label: 'Local priority' }]
     })
     expect(setExtensionPayloadMock).not.toHaveBeenCalledWith('gcs-narrative-tags', 'agreementDescriptionTags', expect.anything())
+  })
+
+  it('loads Proponent tag choices from every eligible agency without choosing one', async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      const second = url.includes('agency%2F2')
+      const agencyId = second ? 'agency/2' : 'agency/1'
+      const key = second ? 'capacity-building' : 'infrastructure'
+      const label = second ? 'Capacity building' : 'Infrastructure'
+      return mockFetchResponse({
+        tags: [],
+        sources: [{
+          source: { agencyId, agencyName: { en: second ? 'Second' : 'First', fr: second ? 'Deuxième' : 'Première' } },
+          config: {
+            enabled: true,
+            tags: [{ key, label: { en: label, fr: label }, description: { en: '', fr: '' }, aliases: [], color: 'neutral' }]
+          }
+        }]
+      })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    vi.stubGlobal('Worker', class {
+      addEventListener = vi.fn()
+      postMessage = vi.fn()
+    })
+
+    const wrapper = mountSlot(false, {}, {
+      kind: 'proponent.descriptions',
+      descriptions: { en: 'Training and infrastructure', fr: 'Formation et infrastructure' },
+      applicantRecipientId: 'recipient 2',
+      agencies: [
+        { agencyId: 'agency/1', nameEn: 'First', nameFr: 'Première', config: {} },
+        { agencyId: 'agency/2', nameEn: 'Second', nameFr: 'Deuxième', config: {} }
+      ],
+      extensions: {},
+      setExtensionPayload: setExtensionPayloadMock
+    })
+    await vi.runAllTimersAsync()
+    await wrapper.vm.$nextTick()
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/extensions/gcs-narrative-tags/agencies/agency%2F1/applicant-recipients/recipient%202/tags',
+      expect.objectContaining({ method: 'GET' })
+    )
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/extensions/gcs-narrative-tags/agencies/agency%2F2/applicant-recipients/recipient%202/tags',
+      expect.objectContaining({ method: 'GET' })
+    )
+    const options = wrapper.get('[data-control="select-menu"]').attributes('data-items')
+    expect(options).toContain('Infrastructure')
+    expect(options).toContain('Capacity building')
   })
 
   it('falls back to keyword ranking when the browser cannot create the worker', async () => {

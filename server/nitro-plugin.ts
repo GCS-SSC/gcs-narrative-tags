@@ -145,13 +145,17 @@ export default defineGcsExtensionNitroPlugin(nitroApp => {
     }
 
     const db = requireNarrativeTagsRouteDatabase(getGcsExtensionHookDatabase(payload))
-    const sources = await resolveProponentNarrativeTagSources(
-      db,
-      NARRATIVE_TAGS_EXTENSION_KEY,
-      payload.agencyId,
-      payload.applicantRecipientId,
-      createAgreementReadPredicate(payload.agreementAccess, db)
-    )
+    const agencyIds: string[] = Array.isArray(payload.agencyIds)
+      ? (payload.agencyIds as unknown[]).filter((value): value is string => typeof value === 'string')
+      : typeof payload.agencyId === 'string' ? [payload.agencyId] : []
+    const sources = (await Promise.all([...new Set(agencyIds)].map(agencyId =>
+      resolveProponentNarrativeTagSources(
+        db,
+        NARRATIVE_TAGS_EXTENSION_KEY,
+        agencyId,
+        payload.applicantRecipientId,
+        createAgreementReadPredicate(payload.agreementAccess, db)
+      )))).flat()
 
     if (sources.length === 0 && Object.keys(textFieldTags).length === 0) return
     if (sources.length === 0) {
