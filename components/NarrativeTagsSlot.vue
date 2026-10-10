@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { NarrativeTagsSlotMessages } from '../i18n/NarrativeTagsSlot'
 
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, useId, watch } from 'vue'
 import type { Ref } from 'vue'
 import type { GcsExtensionJsonConfig, GcsExtensionSlotContext } from '@gcs-ssc/extensions'
 import {
@@ -117,6 +117,7 @@ const {
 }>()
 
 const { locale, t: text } = useExtensionI18n(NarrativeTagsSlotMessages)
+const tagControlLabelId = useId()
 const api = useExtensionApi('gcs-narrative-tags')
 
 const normalizedConfig = computed(() => normalizeNarrativeTagsConfig(config))
@@ -478,7 +479,7 @@ onBeforeUnmount(() => {
 <template>
   <div v-if="shouldRender" class="space-y-3">
     <div class="flex flex-wrap items-center gap-2">
-      <span class="text-sm font-medium text-zinc-900 dark:text-white">
+      <span :id="tagControlLabelId" class="text-sm font-medium text-zinc-900 dark:text-white">
         {{ text('title') }}
       </span>
       <div
@@ -512,6 +513,7 @@ onBeforeUnmount(() => {
       <ExtensionSelectMenu
         v-if="targetConfig?.allowCustomTags !== true"
         v-model="selectedTags"
+        :aria-labelledby="tagControlLabelId"
         multiple
         label-key="label"
         :items="predefinedOptions"
@@ -532,6 +534,7 @@ onBeforeUnmount(() => {
 
       <div v-else>
         <ExtensionInputTags
+          :aria-labelledby="tagControlLabelId"
           :model-value="tagInputLabels"
           :add-on-blur="true"
           :placeholder="text('customPlaceholder')"

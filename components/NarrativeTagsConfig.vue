@@ -268,18 +268,21 @@ const updateTargetEnabled = (targetKey: GcsTextareaKnownTargetKey, value: boolea
             <ExtensionFormField :label="text('labelEn')">
               <ExtensionInput
                 :model-value="tag.label.en"
+                lang="en"
                 @update:model-value="(value: string | number) => updateLocalizedField(tag, 'label', 'en', value)" />
             </ExtensionFormField>
 
             <ExtensionFormField :label="text('labelFr')">
               <ExtensionInput
                 :model-value="tag.label.fr"
+                lang="fr"
                 @update:model-value="(value: string | number) => updateLocalizedField(tag, 'label', 'fr', value)" />
             </ExtensionFormField>
 
             <ExtensionFormField :label="text('descriptionEn')">
               <ExtensionTextarea
                 :model-value="tag.description.en"
+                lang="en"
                 :rows="2"
                 @update:model-value="(value: string | number) => updateLocalizedField(tag, 'description', 'en', value)" />
             </ExtensionFormField>
@@ -287,6 +290,7 @@ const updateTargetEnabled = (targetKey: GcsTextareaKnownTargetKey, value: boolea
             <ExtensionFormField :label="text('descriptionFr')">
               <ExtensionTextarea
                 :model-value="tag.description.fr"
+                lang="fr"
                 :rows="2"
                 @update:model-value="(value: string | number) => updateLocalizedField(tag, 'description', 'fr', value)" />
             </ExtensionFormField>

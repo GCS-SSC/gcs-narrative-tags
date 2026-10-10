@@ -41,6 +41,8 @@ describe('NarrativeTagsConfig', () => {
     })
 
     expect(wrapper.find('[data-input-tags]').exists()).toBe(true)
+    expect(wrapper.findAll('u-input-stub[lang]').map(input => input.attributes('lang'))).toEqual(['en', 'fr', 'en', 'fr', 'en', 'fr'])
+    expect(wrapper.findAllComponents({ name: 'UTextarea' }).map(input => input.vm.$attrs.lang)).toEqual(['en', 'fr', 'en', 'fr', 'en', 'fr'])
   })
 
   it('updates tag suggestion, custom tag, and cache switches through model events', async () => {

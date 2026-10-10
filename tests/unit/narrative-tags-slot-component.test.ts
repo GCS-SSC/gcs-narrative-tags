@@ -106,6 +106,25 @@ describe('NarrativeTagsSlot', () => {
     vi.unstubAllGlobals()
   })
 
+  it.each([['en', false], ['fr', false], ['en', true], ['fr', true]] as const)(
+    'associates the %s visible title with the custom=%s tag control',
+    async (locale, custom) => {
+      vi.stubGlobal('useI18n', () => ({ locale: { value: locale } }))
+      stubApiFetch({ tags: [] })
+      vi.stubGlobal('Worker', class {
+        addEventListener = vi.fn()
+        postMessage = vi.fn()
+      })
+      const wrapper = mountSlot(custom)
+      await vi.runOnlyPendingTimersAsync()
+      const control = wrapper.find(`[data-control="${custom ? 'input-tags' : 'select-menu'}"]`)
+      const labelId = control.attributes('aria-labelledby')
+      expect(labelId).toBeTruthy()
+      expect(wrapper.findAll('[id]').find(label => label.attributes('id') === labelId)?.text())
+        .toBe(locale === 'fr' ? 'Étiquettes suggérées' : 'Suggested tags')
+    }
+  )
+
   it('encodes route identifiers before loading persisted tags', async () => {
     const fetchMock = stubApiFetch({ tags: [{ predefined: true, key: 'infrastructure', label: 'Infrastructure' }] })
     vi.stubGlobal('Worker', class {
