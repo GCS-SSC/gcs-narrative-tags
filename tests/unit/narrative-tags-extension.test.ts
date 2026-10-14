@@ -96,6 +96,7 @@ const createRouteEvent = (
         gcsExtension: context.gcsExtension === undefined
           ? {
               config: {},
+              agencyConfig: {},
               writeAuthorization: {
                 lockAuthState: async () => undefined,
                 authorizeCurrentScope: async () => undefined,
@@ -582,6 +583,7 @@ describe('gcs narrative tags extension', () => {
         $authContext: authContext,
         gcsExtension: {
           config: {},
+          agencyConfig: {},
           entity: {
             scope: {
               type: 'entity',
@@ -632,6 +634,7 @@ describe('gcs narrative tags extension', () => {
         },
         gcsExtension: {
           config: {},
+          agencyConfig: {},
           entity: {
             scope: {
               type: 'entity',
@@ -826,6 +829,7 @@ describe('gcs narrative tags extension', () => {
       },
       gcsExtension: {
         config: {},
+        agencyConfig: {},
         writeAuthorization: {
           lockAuthState,
           authorizeCurrentScope,
@@ -927,6 +931,7 @@ describe('gcs narrative tags extension', () => {
       },
       gcsExtension: {
         config: {},
+        agencyConfig: {},
         entity: {
           scope: {
             type: 'entity',
