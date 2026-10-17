@@ -14,7 +14,6 @@ import {
   ExtensionSelect,
   ExtensionSwitch,
   ExtensionTextarea,
-  ExtensionTooltip,
   useExtensionI18n
 } from '@gcs-ssc/extensions/ui'
 import {
@@ -309,15 +308,13 @@ const updateTargetEnabled = (targetKey: GcsTextareaKnownTargetKey, value: boolea
               <ExtensionInputTags v-model="tag.aliases" :add-on-blur="true" />
             </ExtensionFormField>
 
-            <ExtensionTooltip :text="text('removeTag')">
-              <ExtensionButton
-                color="error"
-                variant="ghost"
-                icon="i-lucide-trash-2"
-                class="cursor-default"
-                :aria-label="text('removeTag')"
-                @click="removeTag(index)" />
-            </ExtensionTooltip>
+            <ExtensionButton
+              color="error"
+              variant="ghost"
+              icon="i-lucide-trash-2"
+              class="cursor-default"
+              :aria-label="text('removeTag')"
+              @click="removeTag(index)" />
           </div>
         </div>
 
