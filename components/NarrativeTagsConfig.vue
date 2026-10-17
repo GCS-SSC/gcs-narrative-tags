@@ -35,7 +35,7 @@ const state: Ref<NarrativeTagsConfig> = ref(normalizeNarrativeTagsConfig(model.v
 const activeTarget: Ref<GcsTextareaKnownTargetKey> = ref('agreement.description')
 
 const colorOptions = computed(() => AGREEMENT_TAG_COLORS.map(color => ({
-  label: color,
+  label: text(`color.${color}`),
   value: color
 })))
 

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { defineComponent, h } from 'vue'
+import { defineComponent, h, ref } from 'vue'
 import { mount } from '@vue/test-utils'
 import NarrativeTagsSlot from '../../components/NarrativeTagsSlot.vue'
 
@@ -169,6 +169,38 @@ describe('NarrativeTagsSlot', () => {
     await wrapper.vm.$nextTick()
 
     expect(wrapper.find('[data-badge-color="neutral"]').text()).toContain('Infrastructure')
+  })
+
+  it.each([false, true])('localizes stored predefined labels in custom=%s mode without rewriting stored tags', async custom => {
+    const locale = ref('en')
+    vi.stubGlobal('useI18n', () => ({ locale }))
+    const tags = [
+      { predefined: true, key: 'capacity-building', label: 'Previously saved label' },
+      { predefined: false, label: 'Texte personnel' }
+    ]
+    stubApiFetch({ tags })
+    vi.stubGlobal('Worker', class {
+      addEventListener = vi.fn()
+      postMessage = vi.fn()
+    })
+    const wrapper = mountSlot(true, {
+      allowCustomTags: custom
+    })
+    await vi.runOnlyPendingTimersAsync()
+    await wrapper.vm.$nextTick()
+    const control = custom ? '[data-control="input-tags"]' : '[data-control="select-menu"]'
+    expect(wrapper.get(control).text()).toContain('Capacity building')
+    expect(wrapper.get(control).text()).toContain('Texte personnel')
+    setExtensionPayloadMock.mockClear()
+
+    locale.value = 'fr'
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.get(control).text()).toContain('Renforcement des capacités')
+    expect(wrapper.get(control).text()).toContain('Texte personnel')
+    expect(wrapper.get(control).text()).not.toContain('Previously saved label')
+    expect(setExtensionPayloadMock).not.toHaveBeenCalled()
+    expect(tags[0]?.label).toBe('Previously saved label')
   })
 
   it('uses animated loading dots without duplicating the suggested tags label', async () => {

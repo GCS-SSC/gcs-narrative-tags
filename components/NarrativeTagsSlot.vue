@@ -173,7 +173,7 @@ const findTagDefinition = (key: string, source?: NarrativeTagSource) =>
 const selectedTags: Ref<NarrativeTagValue[]> = ref([])
 const suggestions: Ref<NarrativeTagSuggestion[]> = ref([])
 const isLoading: Ref<boolean> = ref(false)
-const error: Ref<string> = ref('')
+const suggestionsUnavailable: Ref<boolean> = ref(false)
 const latestRequestId: Ref<number> = ref(0)
 const pendingTimer: Ref<ReturnType<typeof setTimeout> | null> = ref(null)
 const unsubscribeWorker: Ref<(() => void) | null> = ref(null)
@@ -188,7 +188,9 @@ const shouldRender = computed(() =>
 const sourceLabel = (source?: NarrativeTagSource) => narrativeTagSourceLabel(source, activeLocale.value)
 
 const displayTagLabel = (tag: NarrativeTagValue) => {
-  const label = tag.label
+  const label = tag.predefined
+    ? findTagDefinition(tag.key, tag.source)?.label[activeLocale.value] ?? tag.label
+    : tag.label
   const source = sourceLabel(tag.source)
   return source ? `${label} - ${source}` : label
 }
@@ -256,7 +258,7 @@ const loadPersistedTags = async () => {
       fieldStorageKey.value,
       key => tagByKey.value.has(key)
     )
-    error.value = ''
+    suggestionsUnavailable.value = false
     return
   }
 
@@ -280,7 +282,7 @@ const loadPersistedTags = async () => {
       .map(tag => [tagValueKey(tag), tag])).values()]
   } catch {
     selectedTags.value = []
-    error.value = text('unavailable')
+    suggestionsUnavailable.value = true
   }
 }
 
@@ -295,7 +297,7 @@ const handleWorkerMessage = (message: WorkerMessage) => {
 
   isLoading.value = false
   if (message.kind === 'error') {
-    error.value = text('unavailable')
+    suggestionsUnavailable.value = true
     const target = entityTarget.value
     suggestions.value = target
       ? resolveKeywordFallbackSuggestions(target.text, availableTagDefinitions.value, targetConfig.value)
@@ -308,7 +310,7 @@ const handleWorkerMessage = (message: WorkerMessage) => {
     targetConfig.value,
     key => findTagDefinition(key)
   )
-  error.value = ''
+  suggestionsUnavailable.value = false
 }
 
 const clearPendingTimer = () => {
@@ -335,12 +337,12 @@ const scheduleSuggestions = () => {
   if (target?.targetKey === 'proponent.description' && sourceConfigs.value.length > 0) {
     suggestions.value = resolveKeywordFallbackSuggestions(targetText, availableTagDefinitions.value, configForTarget)
     isLoading.value = false
-    error.value = ''
+    suggestionsUnavailable.value = false
     return
   }
 
   isLoading.value = true
-  error.value = ''
+  suggestionsUnavailable.value = false
   const requestId = createSharedRequestId()
   latestRequestId.value = requestId
   pendingTimer.value = setTimeout(() => {
@@ -353,7 +355,7 @@ const scheduleSuggestions = () => {
       })
     } catch {
       isLoading.value = false
-      error.value = text('unavailable')
+      suggestionsUnavailable.value = true
       suggestions.value = resolveKeywordFallbackSuggestions(targetText, availableTagDefinitions.value, configForTarget)
     }
   }, SCORE_REQUEST_DEBOUNCE_MS)
@@ -491,7 +493,7 @@ onBeforeUnmount(() => {
         <span class="plugin-runtime-activity-dot plugin-runtime-activity-dot--delayed" />
         <span class="plugin-runtime-activity-dot plugin-runtime-activity-dot--late" />
       </div>
-      <ExtensionBadge v-if="error" color="warning" variant="subtle">
+      <ExtensionBadge v-if="suggestionsUnavailable" color="warning" variant="subtle">
         {{ text('unavailable') }}
       </ExtensionBadge>
     </div>

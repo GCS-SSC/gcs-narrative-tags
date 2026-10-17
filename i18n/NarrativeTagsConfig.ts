@@ -2,6 +2,13 @@ import { defineGcsExtensionMessages } from '@gcs-ssc/extensions'
 
 export const NarrativeTagsConfigMessages = defineGcsExtensionMessages({
   "en": {
+    "color.primary": "Primary",
+    "color.secondary": "Secondary",
+    "color.success": "Success",
+    "color.info": "Information",
+    "color.warning": "Warning",
+    "color.error": "Error",
+    "color.neutral": "Neutral",
     "title": "Narrative tag setup",
     "description": "Configure the text fields and predefined tag vocabulary used for tag suggestions.",
     "targetFields": "Target field",
@@ -36,6 +43,13 @@ export const NarrativeTagsConfigMessages = defineGcsExtensionMessages({
     "color": "Color"
   },
   "fr": {
+    "color.primary": "Principale",
+    "color.secondary": "Secondaire",
+    "color.success": "Succès",
+    "color.info": "Information",
+    "color.warning": "Avertissement",
+    "color.error": "Erreur",
+    "color.neutral": "Neutre",
     "title": "Configuration des étiquettes narratives",
     "description": "Configurez les champs texte et le vocabulaire prédéfini utilisés pour les suggestions d’étiquettes.",
     "targetFields": "Champ ciblé",

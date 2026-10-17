@@ -678,7 +678,7 @@ describe('gcs narrative tags extension', () => {
       code: 'GCS_NARRATIVE_TAGS_EXTENSION_NOT_FOUND',
       localizedMessage: {
         en: 'The narrative tags extension route could not be found.',
-        fr: 'La route de l extension des etiquettes narratives est introuvable.'
+        fr: 'La route de l’extension des étiquettes narratives est introuvable.'
       }
     })
     expect(db.selectFrom).not.toHaveBeenCalled()
@@ -774,7 +774,7 @@ describe('gcs narrative tags extension', () => {
       code: 'GCS_NARRATIVE_TAGS_INVALID_TAGS',
       localizedMessage: {
         en: 'Select tags that match the configured narrative tag rules.',
-        fr: 'Selectionnez des etiquettes qui respectent les regles configurees.'
+        fr: 'Sélectionnez des étiquettes qui respectent les règles configurées.'
       }
     })
   })

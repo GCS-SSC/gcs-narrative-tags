@@ -9,8 +9,8 @@ describe('NarrativeTagsConfig', () => {
     vi.unstubAllGlobals()
   })
 
-  it('uses InputTags for predefined tag aliases', () => {
-    vi.stubGlobal('useI18n', () => ({ locale: { value: 'en' } }))
+  it.each(['en', 'fr'])('renders %s configuration labels and preserves semantic color values', locale => {
+    vi.stubGlobal('useI18n', () => ({ locale: { value: locale } }))
 
     const wrapper = mount(NarrativeTagsConfig, {
       props: {
@@ -27,7 +27,10 @@ describe('NarrativeTagsConfig', () => {
           UInput: true,
           CommonTextarea: true,
           USwitch: true,
-          USelect: true,
+          USelect: defineComponent({
+            props: ['items'],
+            setup: props => () => h('div', { 'data-options': JSON.stringify(props.items) })
+          }),
           UTooltip: true,
           UButton: true,
           UInputTags: defineComponent({
@@ -43,6 +46,9 @@ describe('NarrativeTagsConfig', () => {
     expect(wrapper.find('[data-input-tags]').exists()).toBe(true)
     expect(wrapper.findAll('u-input-stub[lang]').map(input => input.attributes('lang'))).toEqual(['en', 'fr', 'en', 'fr', 'en', 'fr'])
     expect(wrapper.findAllComponents({ name: 'UTextarea' }).map(input => input.vm.$attrs.lang)).toEqual(['en', 'fr', 'en', 'fr', 'en', 'fr'])
+    const colorOptions = wrapper.findAll('[data-options]').map(control => control.attributes('data-options')).find(options => options?.includes('"value":"primary"'))
+    expect(colorOptions).toContain(`"label":"${locale === 'fr' ? 'Principale' : 'Primary'}","value":"primary"`)
+    expect(colorOptions).toContain(`"label":"${locale === 'fr' ? 'Neutre' : 'Neutral'}","value":"neutral"`)
   })
 
   it('updates tag suggestion, custom tag, and cache switches through model events', async () => {
