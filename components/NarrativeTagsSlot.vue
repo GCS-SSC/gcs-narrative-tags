@@ -479,7 +479,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div v-if="shouldRender" class="space-y-3">
+  <div v-if="shouldRender" class="space-y-3" data-field-scope="extension.gcs-narrative-tags.narrative-tags-slot">
     <div class="flex flex-wrap items-center gap-2">
       <span :id="tagControlLabelId" class="text-sm font-medium text-zinc-900 dark:text-white">
         {{ text('title') }}
@@ -520,7 +520,7 @@ onBeforeUnmount(() => {
         label-key="label"
         :items="predefinedOptions"
         :placeholder="text('select')"
-        class="w-full">
+        class="w-full" data-ui-target="extension.gcs-narrative-tags.narrative-tags-slot.selected-tags">
         <template #default="{ modelValue }">
           <div v-if="Array.isArray(modelValue) && modelValue.length > 0" class="flex flex-wrap gap-1">
             <ExtensionBadge
@@ -540,7 +540,7 @@ onBeforeUnmount(() => {
           :model-value="tagInputLabels"
           :add-on-blur="true"
           :placeholder="text('customPlaceholder')"
-          class="agreement-tag-input w-full"
+          class="agreement-tag-input w-full" data-ui-target="extension.gcs-narrative-tags.narrative-tags-slot.custom-tags"
           @update:model-value="updateTagInputValues">
           <template #item-text="{ item }">
             <span
