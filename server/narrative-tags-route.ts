@@ -707,15 +707,16 @@ const validateRequestedSourceTag = (
   }
 
   const validated = normalizeNarrativeTagValues(sourceConfig.config, [tag], locale, targetKey)
-  if (!validated || validated.length !== 1) {
+  const validatedTag = validated?.length === 1 ? validated[0] : undefined
+  if (!validatedTag) {
     return null
   }
 
   if (source) {
-    return { ...validated[0], source: sourceConfig.source }
+    return { ...validatedTag, source: sourceConfig.source }
   }
 
-  return validated[0]
+  return validatedTag
 }
 
 const buildRequestedSourceTagKey = (value: NarrativeTagValue) => {

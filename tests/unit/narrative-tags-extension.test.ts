@@ -33,22 +33,12 @@ import {
   validateRequestedTags
 } from '../../server/narrative-tags-route'
 
-const readBodyMock = vi.hoisted(() => vi.fn())
 const lockLifecycleMock = vi.hoisted(() => vi.fn(async () => undefined))
 
 vi.mock('@gcs-ssc/extensions/server', async importOriginal => ({
   ...await importOriginal<typeof import('@gcs-ssc/extensions/server')>(),
   lockGcsExtensionLifecycleScope: lockLifecycleMock
 }))
-
-vi.mock('h3', async () => {
-  const actual = await vi.importActual<typeof import('h3')>('h3')
-
-  return {
-    ...actual,
-    readBody: (...args: unknown[]) => readBodyMock(...args)
-  }
-})
 
 const createQueryChain = (executeTakeFirstResult?: Record<string, unknown>, executeResult: Array<Record<string, unknown>> = []) => {
   const chain = {
@@ -83,10 +73,20 @@ const createRouteDatabase = (
 }
 
 const createRouteEvent = (
-  context: GcsExtensionRouteEvent['context']
+  context: GcsExtensionRouteEvent['context'],
+  body?: unknown
 ): GcsExtensionRouteEvent => {
   const request = new IncomingMessage(new Socket())
   request.method = 'PATCH'
+  if (body !== undefined) {
+    const json = JSON.stringify(body)
+    request.headers = {
+      'content-type': 'application/json',
+      'content-length': String(Buffer.byteLength(json))
+    }
+    request.push(json)
+    request.push(null)
+  }
 
   return Object.assign(
     createEvent(request, new ServerResponse(request)),
@@ -408,7 +408,7 @@ describe('gcs narrative tags extension', () => {
         predefined: true,
         key: 'community-benefit',
         label: 'Ignored',
-        source
+        source: { ...source, agencyName: { en: 'Client name', fr: 'Nom client' } }
       },
       {
         predefined: false,
@@ -428,6 +428,40 @@ describe('gcs narrative tags extension', () => {
         source
       }
     ])
+  })
+
+  it('validates unsourced tags against the first source without adding provenance', () => {
+    const source = { agencyId: '2', agencyName: { en: 'Agency Two', fr: 'Agence Deux' } }
+    const config = normalizeNarrativeTagsConfig({
+      targets: { 'proponent.description': { allowCustomTags: true } }
+    })
+
+    expect(validateRequestedSourceTags([{ source, config }], [
+      ' infrastructure ',
+      { predefined: false, label: ' Local priority ' }
+    ])).toEqual([
+      { predefined: true, key: 'infrastructure', label: 'Infrastructure' },
+      { predefined: false, label: 'Local priority' }
+    ])
+    expect(validateRequestedSourceTags([{ source, config }], [])).toEqual([])
+  })
+
+  it('rejects invalid sourced tag requests atomically', () => {
+    const source = { agencyId: '2', agencyName: { en: 'Agency Two', fr: 'Agence Deux' } }
+    const config = normalizeNarrativeTagsConfig({})
+    const sources = [{ source, config }]
+
+    expect(validateRequestedSourceTags([], ['infrastructure'])).toBeNull()
+    expect(validateRequestedSourceTags(sources, null)).toBeNull()
+    expect(validateRequestedSourceTags(sources, ['infrastructure', {}])).toBeNull()
+    expect(validateRequestedSourceTags(sources, ['infrastructure', 'invented-tag'])).toBeNull()
+    expect(validateRequestedSourceTags(sources, ['infrastructure', 'infrastructure'])).toBeNull()
+    expect(validateRequestedSourceTags(sources, [{
+      predefined: true,
+      key: 'infrastructure',
+      source: { ...source, agencyId: '999' }
+    }])).toBeNull()
+    expect(validateRequestedSourceTags(sources, [{ predefined: false, label: 'Disallowed custom tag' }])).toBeNull()
   })
 
   it('resolves proponent tag sources from lead agency enablement and linked stream configuration', async () => {
@@ -759,16 +793,13 @@ describe('gcs narrative tags extension', () => {
         streamId: '31',
         agreementId: '44'
       }
-    })
+    }, { tags: ['deleted-tag'] })
 
     await expect(getTagsHandler(event)).resolves.toEqual({
       tags: [{ predefined: true, key: 'infrastructure', label: 'infrastructure' }],
       textFieldTags: {}
     })
 
-    readBodyMock.mockResolvedValueOnce({
-      tags: ['deleted-tag']
-    })
     await expect(patchTagsHandler(event)).rejects.toMatchObject({
       statusCode: 400,
       code: 'GCS_NARRATIVE_TAGS_INVALID_TAGS',
@@ -836,8 +867,7 @@ describe('gcs narrative tags extension', () => {
           authorizeCurrentEntity: authorizeCurrentScope
         }
       }
-    })
-    readBodyMock.mockResolvedValueOnce({ tags: ['infrastructure'] })
+    }, { tags: ['infrastructure'] })
 
     await expect(patchTagsHandler(event)).resolves.toMatchObject({
       tags: [expect.objectContaining({ key: 'infrastructure' })],
