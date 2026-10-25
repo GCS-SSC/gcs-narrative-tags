@@ -137,7 +137,7 @@ const updateTargetEnabled = (targetKey: GcsTextareaKnownTargetKey, value: boolea
 </script>
 
 <template>
-  <div class="space-y-8">
+  <div class="space-y-8" data-field-scope="extension.gcs-narrative-tags.narrative-tags-config">
     <div>
       <h3 class="text-base font-semibold text-zinc-900 dark:text-white">
         {{ text('title') }}
@@ -154,7 +154,7 @@ const updateTargetEnabled = (targetKey: GcsTextareaKnownTargetKey, value: boolea
         </p>
       </div>
 
-      <ExtensionFormField :label="text('target')">
+      <ExtensionFormField :label="text('target')" data-ui-target="extension.gcs-narrative-tags.narrative-tags-config.active-target">
         <ExtensionSelect
           v-model="activeTarget"
           :items="targetOptions"
@@ -164,7 +164,7 @@ const updateTargetEnabled = (targetKey: GcsTextareaKnownTargetKey, value: boolea
 
       <ExtensionFormField
         :label="text('enabled')"
-        :description="targetOptions.find(target => target.key === activeTarget)?.descriptionText">
+        :description="targetOptions.find(target => target.key === activeTarget)?.descriptionText" data-ui-target="extension.gcs-narrative-tags.narrative-tags-config.enabled">
         <div class="flex min-h-10 items-center">
           <ExtensionSwitch
             :model-value="currentTarget.enabled"
@@ -172,7 +172,7 @@ const updateTargetEnabled = (targetKey: GcsTextareaKnownTargetKey, value: boolea
         </div>
       </ExtensionFormField>
 
-      <ExtensionFormField :label="text('allowCustomTags')">
+      <ExtensionFormField :label="text('allowCustomTags')" data-ui-target="extension.gcs-narrative-tags.narrative-tags-config.allow-custom-tags">
         <div class="flex min-h-10 items-center">
           <ExtensionSwitch
             :model-value="currentTarget.allowCustomTags"
@@ -180,7 +180,7 @@ const updateTargetEnabled = (targetKey: GcsTextareaKnownTargetKey, value: boolea
         </div>
       </ExtensionFormField>
 
-      <ExtensionFormField :label="text('allowDynamicTagSuggestions')">
+      <ExtensionFormField :label="text('allowDynamicTagSuggestions')" data-ui-target="extension.gcs-narrative-tags.narrative-tags-config.allow-dynamic-tag-suggestions">
         <div class="flex min-h-10 items-center">
           <ExtensionSwitch
             :model-value="currentTarget.allowDynamicTagSuggestions"
@@ -188,53 +188,53 @@ const updateTargetEnabled = (targetKey: GcsTextareaKnownTargetKey, value: boolea
         </div>
       </ExtensionFormField>
 
-      <ExtensionFormField :label="text('minScore')">
+      <ExtensionFormField :label="text('minScore')" data-ui-target="extension.gcs-narrative-tags.narrative-tags-config.current-target.min-score">
         <ExtensionInput v-model.number="currentTarget.minScore" type="number" min="0" max="1" step="0.01" />
       </ExtensionFormField>
 
-      <ExtensionFormField :label="text('maxSuggestions')">
+      <ExtensionFormField :label="text('maxSuggestions')" data-ui-target="extension.gcs-narrative-tags.narrative-tags-config.current-target.max-suggestions">
         <ExtensionInput v-model.number="currentTarget.maxSuggestions" type="number" min="1" max="12" step="1" />
       </ExtensionFormField>
     </ExtensionSection>
 
     <ExtensionSection :title="text('scoring')" badge="02" :grid-cols="3">
-      <ExtensionFormField :label="text('minDynamicScore')">
+      <ExtensionFormField :label="text('minDynamicScore')" data-ui-target="extension.gcs-narrative-tags.narrative-tags-config.current-target.min-dynamic-score">
         <ExtensionInput v-model.number="currentTarget.minDynamicScore" type="number" min="0" max="1" step="0.01" />
       </ExtensionFormField>
 
-      <ExtensionFormField :label="text('maxDynamicTags')">
+      <ExtensionFormField :label="text('maxDynamicTags')" data-ui-target="extension.gcs-narrative-tags.narrative-tags-config.current-target.max-dynamic-tags">
         <ExtensionInput v-model.number="currentTarget.maxDynamicTags" type="number" min="1" max="12" step="1" />
       </ExtensionFormField>
 
-      <ExtensionFormField :label="text('dynamicNgramMin')">
+      <ExtensionFormField :label="text('dynamicNgramMin')" data-ui-target="extension.gcs-narrative-tags.narrative-tags-config.current-target.dynamic-ngram-min">
         <ExtensionInput v-model.number="currentTarget.dynamicNgramMin" type="number" min="1" max="5" step="1" />
       </ExtensionFormField>
 
-      <ExtensionFormField :label="text('dynamicNgramMax')">
+      <ExtensionFormField :label="text('dynamicNgramMax')" data-ui-target="extension.gcs-narrative-tags.narrative-tags-config.current-target.dynamic-ngram-max">
         <ExtensionInput v-model.number="currentTarget.dynamicNgramMax" type="number" min="1" max="5" step="1" />
       </ExtensionFormField>
 
-      <ExtensionFormField :label="text('semanticWeight')">
+      <ExtensionFormField :label="text('semanticWeight')" data-ui-target="extension.gcs-narrative-tags.narrative-tags-config.current-target.semantic-weight">
         <ExtensionInput v-model.number="currentTarget.semanticWeight" type="number" min="0" max="1" step="0.01" />
       </ExtensionFormField>
 
-      <ExtensionFormField :label="text('lexicalWeight')">
+      <ExtensionFormField :label="text('lexicalWeight')" data-ui-target="extension.gcs-narrative-tags.narrative-tags-config.current-target.lexical-weight">
         <ExtensionInput v-model.number="currentTarget.lexicalWeight" type="number" min="0" max="1" step="0.01" />
       </ExtensionFormField>
 
-      <ExtensionFormField :label="text('exactAliasBoost')">
+      <ExtensionFormField :label="text('exactAliasBoost')" data-ui-target="extension.gcs-narrative-tags.narrative-tags-config.current-target.exact-alias-boost">
         <ExtensionInput v-model.number="currentTarget.exactAliasBoost" type="number" min="0" max="1" step="0.01" />
       </ExtensionFormField>
 
-      <ExtensionFormField :label="text('negationPenalty')">
+      <ExtensionFormField :label="text('negationPenalty')" data-ui-target="extension.gcs-narrative-tags.narrative-tags-config.current-target.negation-penalty">
         <ExtensionInput v-model.number="currentTarget.negationPenalty" type="number" min="0" max="1" step="0.01" />
       </ExtensionFormField>
 
-      <ExtensionFormField :label="text('negationWindow')">
+      <ExtensionFormField :label="text('negationWindow')" data-ui-target="extension.gcs-narrative-tags.narrative-tags-config.current-target.negation-window">
         <ExtensionInput v-model.number="currentTarget.negationWindow" type="number" min="0" max="20" step="1" />
       </ExtensionFormField>
 
-      <ExtensionFormField :label="text('useEmbeddingCache')">
+      <ExtensionFormField :label="text('useEmbeddingCache')" data-ui-target="extension.gcs-narrative-tags.narrative-tags-config.use-embedding-cache">
         <div class="flex min-h-10 items-center">
           <ExtensionSwitch
             :model-value="currentTarget.useEmbeddingCache"
@@ -242,7 +242,7 @@ const updateTargetEnabled = (targetKey: GcsTextareaKnownTargetKey, value: boolea
         </div>
       </ExtensionFormField>
 
-      <ExtensionFormField :label="text('useBrowserCache')">
+      <ExtensionFormField :label="text('useBrowserCache')" data-ui-target="extension.gcs-narrative-tags.narrative-tags-config.use-browser-cache">
         <div class="flex min-h-10 items-center">
           <ExtensionSwitch
             :model-value="currentTarget.useBrowserCache"
@@ -258,27 +258,27 @@ const updateTargetEnabled = (targetKey: GcsTextareaKnownTargetKey, value: boolea
           :key="tagKeyAtIndex(index, tag.key)"
           class="border-default space-y-4 border-b pb-4 last:border-b-0 last:pb-0">
           <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <ExtensionFormField :label="text('key')">
+            <ExtensionFormField :label="text('key')" data-ui-target="extension.gcs-narrative-tags.narrative-tags-config.key">
               <ExtensionInput
                 :model-value="tag.key"
                 @update:model-value="(value: string | number) => updateTagKey(tag, value)" />
             </ExtensionFormField>
 
-            <ExtensionFormField :label="text('labelEn')">
+            <ExtensionFormField :label="text('labelEn')" data-ui-target="extension.gcs-narrative-tags.narrative-tags-config.label-en">
               <ExtensionInput
                 :model-value="tag.label.en"
                 lang="en"
                 @update:model-value="(value: string | number) => updateLocalizedField(tag, 'label', 'en', value)" />
             </ExtensionFormField>
 
-            <ExtensionFormField :label="text('labelFr')">
+            <ExtensionFormField :label="text('labelFr')" data-ui-target="extension.gcs-narrative-tags.narrative-tags-config.label-fr">
               <ExtensionInput
                 :model-value="tag.label.fr"
                 lang="fr"
                 @update:model-value="(value: string | number) => updateLocalizedField(tag, 'label', 'fr', value)" />
             </ExtensionFormField>
 
-            <ExtensionFormField :label="text('descriptionEn')">
+            <ExtensionFormField :label="text('descriptionEn')" data-ui-target="extension.gcs-narrative-tags.narrative-tags-config.description-en">
               <ExtensionTextarea
                 :model-value="tag.description.en"
                 lang="en"
@@ -286,7 +286,7 @@ const updateTargetEnabled = (targetKey: GcsTextareaKnownTargetKey, value: boolea
                 @update:model-value="(value: string | number) => updateLocalizedField(tag, 'description', 'en', value)" />
             </ExtensionFormField>
 
-            <ExtensionFormField :label="text('descriptionFr')">
+            <ExtensionFormField :label="text('descriptionFr')" data-ui-target="extension.gcs-narrative-tags.narrative-tags-config.description-fr">
               <ExtensionTextarea
                 :model-value="tag.description.fr"
                 lang="fr"
@@ -294,7 +294,7 @@ const updateTargetEnabled = (targetKey: GcsTextareaKnownTargetKey, value: boolea
                 @update:model-value="(value: string | number) => updateLocalizedField(tag, 'description', 'fr', value)" />
             </ExtensionFormField>
 
-            <ExtensionFormField :label="text('color')">
+            <ExtensionFormField :label="text('color')" data-ui-target="extension.gcs-narrative-tags.narrative-tags-config.tag.color">
               <ExtensionSelect
                 v-model="tag.color"
                 :items="colorOptions"
@@ -304,7 +304,7 @@ const updateTargetEnabled = (targetKey: GcsTextareaKnownTargetKey, value: boolea
           </div>
 
           <div class="grid grid-cols-1 gap-4 md:grid-cols-[1fr_auto] md:items-end">
-            <ExtensionFormField :label="text('aliases')">
+            <ExtensionFormField :label="text('aliases')" data-ui-target="extension.gcs-narrative-tags.narrative-tags-config.tag.aliases">
               <ExtensionInputTags v-model="tag.aliases" :add-on-blur="true" />
             </ExtensionFormField>
 
