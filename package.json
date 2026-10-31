@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@browser-tag-extractor/core": "github:omarmir/tag-extractor#pkg-v0.1.0",
-    "@gcs-ssc/extensions": "^0.3.2",
+    "@gcs-ssc/extensions": "^0.4.0",
     "@huggingface/transformers": "^4.1.0",
     "onnxruntime-web": "1.26.0-dev.20260416-b7804b056c"
   },
