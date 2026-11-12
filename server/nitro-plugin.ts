@@ -1,8 +1,8 @@
 import { defineGcsExtensionNitroPlugin, getGcsExtensionHookDatabase } from '@gcs-ssc/extensions/server'
 import {
   NARRATIVE_TAGS_EXTENSION_KEY,
-  NARRATIVE_TAGS_PROPONENT_OWNER_TYPE,
   createAgreementReadPredicate,
+  mergePersistedProponentTextFieldTags,
   requireNarrativeTagsRouteDatabase,
   resolveProponentNarrativeTagSources,
   setPersistedNarrativeTags,
@@ -11,7 +11,7 @@ import {
   validateRequestedTags
 } from './narrative-tags-route'
 import { createNarrativeTagsUserError } from './errors'
-import { normalizeNarrativeTagsConfig } from '../components/narrative-tags'
+import { createNarrativeTagSourceProjection, normalizeNarrativeTagsConfig, parseNarrativeTagSourceProjection } from '../components/narrative-tags'
 import type { NarrativeTagValue } from '../components/narrative-tags'
 
 type AgreementProfileTagPayload = {
@@ -31,6 +31,17 @@ const resolveAgreementDescriptionTags = (rawBody: Record<string, unknown>): unkn
     : {}
 
   return extensionPayload.agreementDescriptionTags
+}
+
+/**
+ * Reads the Proponent source projection without inferring membership from submitted values.
+ * @param rawBody - Original profile request body.
+ * @returns The parsed read projection, or null when it is missing or malformed.
+ */
+const resolveProponentSourceProjection = (rawBody: Record<string, unknown>) => {
+  const extensions = isRecord(rawBody.extensions) ? rawBody.extensions : {}
+  const extensionPayload = extensions[NARRATIVE_TAGS_EXTENSION_KEY]
+  return parseNarrativeTagSourceProjection(isRecord(extensionPayload) ? extensionPayload.proponentSourceProjection : undefined)
 }
 
 const resolveTextFieldTags = (rawBody: Record<string, unknown>): Record<string, unknown> | null => {
@@ -140,7 +151,7 @@ export default defineGcsExtensionNitroPlugin(nitroApp => {
 
   nitroApp.hooks.hook('applicantrecipient:profile:updated', async payload => {
     const textFieldTags = resolveTextFieldTags(payload.rawBody)
-    if (!textFieldTags) {
+    if (!textFieldTags || Object.keys(textFieldTags).length === 0) {
       return
     }
 
@@ -157,9 +168,13 @@ export default defineGcsExtensionNitroPlugin(nitroApp => {
         createAgreementReadPredicate(payload.agreementAccess, db)
       )))).flat()
 
-    if (sources.length === 0 && Object.keys(textFieldTags).length === 0) return
     if (sources.length === 0) {
       throw createNarrativeTagsUserError('GCS_NARRATIVE_TAGS_INVALID_TAGS', 'extensions.gcs-narrative-tags.textFieldTags')
+    }
+
+    const projection = resolveProponentSourceProjection(payload.rawBody)
+    if (!projection || JSON.stringify(projection) !== JSON.stringify(createNarrativeTagSourceProjection(sources))) {
+      throw createNarrativeTagsUserError('GCS_NARRATIVE_TAGS_SOURCE_PROJECTION_CHANGED', 'extensions.gcs-narrative-tags.proponentSourceProjection')
     }
 
     const normalizedTextFieldTags = validateProponentTextFieldTags(sources, textFieldTags)
@@ -167,11 +182,11 @@ export default defineGcsExtensionNitroPlugin(nitroApp => {
       throw createNarrativeTagsUserError('GCS_NARRATIVE_TAGS_INVALID_TAGS', 'extensions.gcs-narrative-tags.textFieldTags')
     }
 
-    await setPersistedTextFieldTags(
+    await mergePersistedProponentTextFieldTags(
       db,
       NARRATIVE_TAGS_EXTENSION_KEY,
-      NARRATIVE_TAGS_PROPONENT_OWNER_TYPE,
       payload.applicantRecipientId,
+      sources,
       normalizedTextFieldTags
     )
   })

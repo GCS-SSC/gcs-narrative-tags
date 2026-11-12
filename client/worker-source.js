@@ -6,8 +6,9 @@ import {
 
 const MODEL_BASE_PATH = '/extensions/gcs-narrative-tags/models/'
 
-let extractorPromise = null
-let serializedConfig = ''
+/** @typedef {ReturnType<typeof createTransformersTagExtractor>} Extractor */
+/** @type {{ kind: 'empty' } | { kind: 'loading', config: string, promise: Promise<Extractor> } | { kind: 'ready', config: string, extractor: Extractor } | { kind: 'failed', config: string, error: unknown }} */
+let extractorState = { kind: 'empty' }
 
 const asNumber = (value, fallback, min, max) => {
   const numericValue = typeof value === 'number' ? value : Number(value)
@@ -50,13 +51,27 @@ const resolveConfig = payload => resolveTagExtractorConfig({
 
 const getExtractor = async config => {
   const nextSerializedConfig = JSON.stringify(config)
-  if (!extractorPromise || serializedConfig !== nextSerializedConfig) {
+  if (extractorState.kind === 'empty' || extractorState.config !== nextSerializedConfig) {
     const extractor = createTransformersTagExtractor(config)
-    serializedConfig = nextSerializedConfig
-    extractorPromise = extractor.loadModel().then(() => extractor)
+    const pending = {
+      kind: /** @type {const} */ ('loading'),
+      config: nextSerializedConfig,
+      promise: extractor.loadModel().then(() => extractor)
+    }
+    extractorState = pending
+    try {
+      const loaded = await pending.promise
+      if (extractorState === pending) extractorState = { kind: 'ready', config: nextSerializedConfig, extractor: loaded }
+      return loaded
+    } catch (error) {
+      if (extractorState === pending) extractorState = { kind: 'failed', config: nextSerializedConfig, error }
+      throw error
+    }
   }
 
-  return await extractorPromise
+  if (extractorState.kind === 'ready') return extractorState.extractor
+  if (extractorState.kind === 'failed') throw extractorState.error
+  return await extractorState.promise
 }
 
 /**

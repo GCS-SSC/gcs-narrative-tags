@@ -8,7 +8,9 @@ export const NarrativeTagsErrorMessages = defineGcsExtensionMessages({
     GCS_NARRATIVE_TAGS_STREAM_DISABLED: 'Narrative tags are disabled for this stream.',
     GCS_NARRATIVE_TAGS_UNAUTHORIZED: 'Sign in before using narrative tags.',
     GCS_NARRATIVE_TAGS_FORBIDDEN: 'You do not have permission to use narrative tags here.',
-    GCS_NARRATIVE_TAGS_INVALID_TAGS: 'Select tags that match the configured narrative tag rules.'
+    GCS_NARRATIVE_TAGS_INVALID_TAGS: 'Select tags that match the configured narrative tag rules.',
+    GCS_NARRATIVE_TAGS_SOURCE_PROJECTION_CHANGED: 'Available narrative tag sources changed. Reload the profile before saving.',
+    GCS_NARRATIVE_TAGS_PERSISTED_TAGS_INVALID: 'Saved narrative tags could not be updated. Contact your administrator.'
   },
   fr: {
     GCS_NARRATIVE_TAGS_MISSING_ROUTE_IDS: 'La route des étiquettes narratives ne contient pas les identifiants requis.',
@@ -17,6 +19,8 @@ export const NarrativeTagsErrorMessages = defineGcsExtensionMessages({
     GCS_NARRATIVE_TAGS_STREAM_DISABLED: 'Les étiquettes narratives sont désactivées pour ce volet.',
     GCS_NARRATIVE_TAGS_UNAUTHORIZED: 'Connectez-vous avant d’utiliser les étiquettes narratives.',
     GCS_NARRATIVE_TAGS_FORBIDDEN: 'Vous n’avez pas l’autorisation d’utiliser les étiquettes narratives ici.',
-    GCS_NARRATIVE_TAGS_INVALID_TAGS: 'Sélectionnez des étiquettes qui respectent les règles configurées.'
+    GCS_NARRATIVE_TAGS_INVALID_TAGS: 'Sélectionnez des étiquettes qui respectent les règles configurées.',
+    GCS_NARRATIVE_TAGS_SOURCE_PROJECTION_CHANGED: 'Les sources d’étiquettes narratives disponibles ont changé. Rechargez le profil avant d’enregistrer.',
+    GCS_NARRATIVE_TAGS_PERSISTED_TAGS_INVALID: 'Les étiquettes narratives enregistrées n’ont pas pu être mises à jour. Communiquez avec votre administrateur.'
   }
 })

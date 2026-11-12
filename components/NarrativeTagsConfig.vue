@@ -31,7 +31,14 @@ const model = defineModel<Record<string, JsonValue>>({
 
 const { locale, t: text } = useExtensionI18n(NarrativeTagsConfigMessages)
 
-const state: Ref<NarrativeTagsConfig> = ref(normalizeNarrativeTagsConfig(model.value))
+type TagRow = NarrativeTagDefinition & { renderKey: number }
+type TagEditorConfig = Omit<NarrativeTagsConfig, 'tags'> & { tags: TagRow[] }
+let nextRenderKey = 0
+const createEditorState = (value: Record<string, JsonValue>): TagEditorConfig => {
+  const normalized = normalizeNarrativeTagsConfig(value)
+  return { ...normalized, tags: normalized.tags.map(tag => ({ ...tag, renderKey: ++nextRenderKey })) }
+}
+const state: Ref<TagEditorConfig> = ref(createEditorState(model.value))
 const activeTarget: Ref<GcsTextareaKnownTargetKey> = ref('agreement.description')
 
 const colorOptions = computed(() => AGREEMENT_TAG_COLORS.map(color => ({
@@ -48,8 +55,6 @@ const targetOptions = computed(() => GCS_TEXTAREA_TARGETS.map(target => ({
 
 const currentTarget = computed<NarrativeTagsTargetConfig>(() => getNarrativeTagsTargetConfig(state.value, activeTarget.value))
 
-const tagKeyAtIndex = (index: number, key: string): string => `${index}-${key}`
-
 const nextAvailableKey = () => {
   const existingKeys = new Set(state.value.tags.map(tag => tag.key))
   let nextIndex = state.value.tags.length + 1
@@ -64,9 +69,10 @@ const nextAvailableKey = () => {
 }
 
 watch(() => model.value, value => {
+  if (JSON.stringify(value) === JSON.stringify(toNarrativeTagsJson(state.value))) return
   const nextState = normalizeNarrativeTagsConfig(value)
   if (JSON.stringify(toNarrativeTagsJson(nextState)) !== JSON.stringify(toNarrativeTagsJson(state.value))) {
-    state.value = nextState
+    state.value = createEditorState(value)
   }
 }, { deep: true })
 
@@ -77,9 +83,10 @@ watch(state, value => {
   }
 }, { deep: true })
 
-const createTag = (): NarrativeTagDefinition => {
+const createTag = (): TagRow => {
   const nextIndex = state.value.tags.length + 1
   return {
+    renderKey: ++nextRenderKey,
     key: nextAvailableKey(),
     label: {
       en: `Tag ${nextIndex}`,
@@ -255,7 +262,7 @@ const updateTargetEnabled = (targetKey: GcsTextareaKnownTargetKey, value: boolea
       <div class="space-y-4">
         <div
           v-for="(tag, index) in state.tags"
-          :key="tagKeyAtIndex(index, tag.key)"
+          :key="tag.renderKey"
           class="border-default space-y-4 border-b pb-4 last:border-b-0 last:pb-0">
           <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
             <ExtensionFormField :label="text('key')" data-ui-target="extension.gcs-narrative-tags.narrative-tags-config.key">

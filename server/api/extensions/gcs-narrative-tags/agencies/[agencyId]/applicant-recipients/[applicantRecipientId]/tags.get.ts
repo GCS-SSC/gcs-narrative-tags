@@ -1,3 +1,4 @@
+import { createNarrativeTagSourceProjection } from '../../../../../../../../components/narrative-tags.ts'
 import { defineGcsExtensionRouteHandler } from '@gcs-ssc/extensions/server'
 import {
   NARRATIVE_TAGS_EXTENSION_KEY,
@@ -75,6 +76,7 @@ export default defineGcsExtensionRouteHandler(async ({
   return {
     tags: textFieldTags['proponent.description'] ?? textFieldTags['proponent.description:en'] ?? [],
     textFieldTags,
-    sources
+    sources,
+    sourceProjection: createNarrativeTagSourceProjection(sources)
   }
 })

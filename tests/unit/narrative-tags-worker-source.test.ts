@@ -176,6 +176,36 @@ describe('narrative tags worker source', () => {
     expect(createTransformersTagExtractorMock).toHaveBeenCalledTimes(2)
   })
 
+  it('shares pending model initialization and retains failed config until configuration changes', async () => {
+    let rejectLoad: (error: Error) => void = () => {}
+    loadModelMock.mockImplementationOnce(() => new Promise((_resolve, reject) => { rejectLoad = reject }))
+    const { suggestTags } = await import('../../client/worker-source')
+    const payload = { text: 'Infrastructure', tags: [{ key: 'infrastructure', label: { en: 'Infrastructure' } }] }
+    const first = suggestTags(payload)
+    const second = suggestTags(payload)
+    expect(createTransformersTagExtractorMock).toHaveBeenCalledTimes(1)
+    rejectLoad(new Error('model unavailable'))
+    await expect(first).resolves.toEqual([{ predefined: true, key: 'fallback-tag', score: 0.75 }])
+    await expect(second).resolves.toEqual([{ predefined: true, key: 'fallback-tag', score: 0.75 }])
+    await suggestTags(payload)
+    expect(createTransformersTagExtractorMock).toHaveBeenCalledTimes(1)
+    await suggestTags({ ...payload, minScore: 0.9 })
+    expect(createTransformersTagExtractorMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not let replaced model initialization replace the current config cache', async () => {
+    let resolveLoad: () => void = () => {}
+    loadModelMock.mockImplementationOnce(() => new Promise<void>(resolve => { resolveLoad = resolve }))
+    const { suggestTags } = await import('../../client/worker-source')
+    const payload = { text: 'Infrastructure', tags: [{ key: 'infrastructure', label: { en: 'Infrastructure' } }] }
+    const first = suggestTags(payload)
+    await suggestTags({ ...payload, minScore: 0.9 })
+    resolveLoad()
+    await first
+    await suggestTags({ ...payload, minScore: 0.9 })
+    expect(createTransformersTagExtractorMock).toHaveBeenCalledTimes(2)
+  })
+
   it('handles worker messages and reports Error and primitive failures', async () => {
     await import('../../client/worker-source')
     const listener = addEventListenerMock.mock.calls[0]?.[1] as (event: { data?: unknown }) => void

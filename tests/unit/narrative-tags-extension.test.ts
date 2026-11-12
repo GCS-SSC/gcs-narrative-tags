@@ -291,6 +291,22 @@ describe('gcs narrative tags extension', () => {
     })
   })
 
+  it.each(['agreement.descriptions', 'proponent.descriptions'])('retains the %s persistence target without narrative text', kind => {
+    expect(resolveNarrativeTagsEntityTarget({
+      kind,
+      descriptions: { en: ' ', fr: '' },
+      streamId: 'stream-1',
+      agreementId: 'agreement-1',
+      applicantRecipientId: 'proponent-1',
+      agencies: [{ agencyId: 'agency-1' }]
+    })).toMatchObject({
+      targetKey: kind === 'agreement.descriptions' ? 'agreement.description' : 'proponent.description',
+      text: '',
+      ownerId: kind === 'agreement.descriptions' ? 'agreement-1' : 'proponent-1'
+    })
+    expect(resolveNarrativeTagsEntityTarget({ kind: 'unsupported', descriptions: { en: '' } })).toBeNull()
+  })
+
   it('ranks only predefined tags without inventing new labels', () => {
     const config = normalizeNarrativeTagsConfig({})
     const ranked = rankTagsByKeywordOverlap(
@@ -1178,6 +1194,7 @@ describe('gcs narrative tags extension', () => {
       rawBody: {
         extensions: {
           'gcs-narrative-tags': {
+            proponentSourceProjection: { version: 1, sourceKeys: ['1:31'] },
             textFieldTags: {
               'proponent.description': [
                 { predefined: true, key: 'stream-priority', label: 'Stream priority', source }
@@ -1215,6 +1232,7 @@ describe('gcs narrative tags extension', () => {
       rawBody: {
         extensions: {
           'gcs-narrative-tags': {
+            proponentSourceProjection: { version: 1, sourceKeys: ['1:31'] },
             textFieldTags: {
               'proponent.description': [
                 { predefined: true, key: 'stream-priority', label: 'Stream priority', source }

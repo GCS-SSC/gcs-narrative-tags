@@ -599,22 +599,85 @@ export const getPersistedTextFieldTags = async (
 
   return Object.entries(value as Record<string, unknown>).reduce<Record<string, NarrativeTagValue[]>>((acc, [key, tags]) => {
     const normalizedTags = Array.isArray(tags)
-      ? tags.flatMap((item): NarrativeTagValue[] => {
-          if (typeof item !== 'object' || item === null || !('predefined' in item)) return []
-          const record = item as Record<string, unknown>
-          const source = normalizeNarrativeTagSource(record.source)
-          if (record.predefined === true && typeof record.key === 'string' && typeof record.label === 'string') {
-            return [{ predefined: true as const, key: record.key, label: record.label, source }]
-          }
-          if (record.predefined === false && typeof record.label === 'string') {
-            return [{ predefined: false as const, label: record.label, source }]
-          }
-          return []
-        })
+      ? tags.flatMap(item => normalizePersistedTextFieldTag(item) ?? [])
       : []
     acc[key] = normalizedTags
     return acc
   }, {})
+}
+
+/**
+ * Projects the existing supported persisted item shapes without changing their read policy.
+ * @param item - Retained JSON tag value.
+ * @returns The projected tag, or undefined for an unprojectable item.
+ */
+const normalizePersistedTextFieldTag = (item: unknown): NarrativeTagValue | undefined => {
+  if (typeof item !== 'object' || item === null || !('predefined' in item)) return undefined
+  const source = normalizeNarrativeTagSource('source' in item ? item.source : undefined)
+  if (item.predefined === true && 'key' in item && typeof item.key === 'string' && 'label' in item && typeof item.label === 'string') {
+    return { predefined: true, key: item.key, label: item.label, source }
+  }
+  if (item.predefined === false && 'label' in item && typeof item.label === 'string') {
+    return { predefined: false, label: item.label, source }
+  }
+  return undefined
+}
+
+/**
+ * Merges only submitted visible fields while the host holds the Proponent write lock and transaction.
+ * @param db - Active host write transaction.
+ * @param extensionKey - Owning extension key.
+ * @param applicantRecipientId - Locked Proponent aggregate identity.
+ * @param sources - Freshly admitted contribution sources used to validate the submitted tags.
+ * @param submittedFields - Validated visible projections for explicitly submitted fields.
+ * @returns The updated or inserted KV row, or undefined for an empty field map.
+ */
+export const mergePersistedProponentTextFieldTags = async (
+  db: NarrativeTagsRouteDatabase,
+  extensionKey: string,
+  applicantRecipientId: string,
+  sources: NarrativeTagSourceConfig[],
+  submittedFields: Record<string, NarrativeTagValue[]>
+) => {
+  if (Object.keys(submittedFields).length === 0) return
+
+  const existing = await db.selectFrom('extensions.kv_entry').select(['id', 'value'])
+    .where('extension_key', '=', extensionKey)
+    .where('owner_type', '=', NARRATIVE_TAGS_PROPONENT_OWNER_TYPE)
+    .where('owner_id', '=', applicantRecipientId)
+    .where('config_key', '=', NARRATIVE_TAGS_TEXT_FIELD_CONFIG_KEY)
+    .where('_deleted', '=', false)
+    .executeTakeFirst()
+  const stored = existing?.value
+  if (existing && (typeof stored !== 'object' || stored === null || Array.isArray(stored))) {
+    throw createNarrativeTagsUserError('GCS_NARRATIVE_TAGS_PERSISTED_TAGS_INVALID')
+  }
+  const merged = new Map<string, unknown>(typeof stored === 'object' && stored !== null ? Object.entries(stored) : [])
+  for (const [field, submittedTags] of Object.entries(submittedFields)) {
+    const retainedTags = merged.get(field)
+    if (retainedTags !== undefined && !Array.isArray(retainedTags)) {
+      throw createNarrativeTagsUserError('GCS_NARRATIVE_TAGS_PERSISTED_TAGS_INVALID')
+    }
+    const hiddenTags = (retainedTags ?? []).filter((item: unknown) => {
+      const tag = normalizePersistedTextFieldTag(item)
+      // Retain unprojectable data as well: saving a visible projection must never clean up unseen values.
+      return !tag || Boolean(tag.source && !sources.some(source => sameNarrativeTagSource(source.source, tag.source)))
+    })
+    merged.set(field, [...hiddenTags, ...submittedTags])
+  }
+
+  if (existing) {
+    return await db.updateTable('extensions.kv_entry')
+      .set({ value: narrativeTagsJsonbValue(Object.fromEntries(merged)) }).where('id', '=', existing.id)
+      .returningAll().executeTakeFirst()
+  }
+  return await db.insertInto('extensions.kv_entry').values({
+    extension_key: extensionKey,
+    owner_type: NARRATIVE_TAGS_PROPONENT_OWNER_TYPE,
+    owner_id: applicantRecipientId,
+    config_key: NARRATIVE_TAGS_TEXT_FIELD_CONFIG_KEY,
+    value: narrativeTagsJsonbValue(Object.fromEntries(merged))
+  }).returningAll().executeTakeFirst()
 }
 
 /** Removes persisted tags whose source belongs to an Agreement the caller cannot read. */

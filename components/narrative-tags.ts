@@ -24,6 +24,11 @@ export interface NarrativeTagSourceConfig {
   config: NarrativeTagsConfig
 }
 
+export type NarrativeTagSourceProjection = {
+  version: 1
+  sourceKeys: string[]
+}
+
 export type NarrativeTagDefinitionWithSource = NarrativeTagDefinition & {
   source?: NarrativeTagSource
 }
@@ -273,6 +278,33 @@ export const narrativeTagSourceKey = (source?: NarrativeTagSource): string => {
 }
 
 /**
+ * Captures the source membership a Proponent editor may replace.
+ * @param sources - Authorized sources returned by the read or resolved in the write transaction.
+ * @returns Versioned source identities without retained tag values.
+ */
+export const createNarrativeTagSourceProjection = (
+  sources: ReadonlyArray<Pick<NarrativeTagSourceConfig, 'source'>>
+): NarrativeTagSourceProjection => ({
+  version: 1,
+  sourceKeys: [...new Set(sources.map(item => narrativeTagSourceKey(item.source)))].sort()
+})
+
+/**
+ * Parses required replacement membership from an untrusted extension payload.
+ * @param value - Versioned membership from the client or GET response.
+ * @returns Canonical membership, or null for unsupported or malformed evidence.
+ */
+export const parseNarrativeTagSourceProjection = (value: unknown): NarrativeTagSourceProjection | null => {
+  if (!isRecord(value) || value.version !== 1 || !Array.isArray(value.sourceKeys)
+    || !value.sourceKeys.every((key): key is string => typeof key === 'string' && key.length > 0)) {
+    return null
+  }
+
+  const sourceKeys = [...new Set(value.sourceKeys)].sort()
+  return sourceKeys.length === value.sourceKeys.length ? { version: 1, sourceKeys } : null
+}
+
+/**
  * Compares sources by their normalized agency-and-stream identity.
  */
 export const sameNarrativeTagSource = (left?: NarrativeTagSource, right?: NarrativeTagSource): boolean =>
@@ -484,7 +516,7 @@ export const resolveNarrativeTagsDescriptionsContext = (context: Record<string, 
 export const resolveNarrativeTagsTextareaContext = resolveNarrativeTagsDescriptionsContext
 
 /**
- * Resolves a non-empty description context to its agreement or proponent persistence target.
+ * Resolves the description owner independently from the text available for suggestions.
  */
 export const resolveNarrativeTagsEntityTarget = (context: Record<string, unknown>): NarrativeTagsEntityTarget | null => {
   const descriptionsContext = resolveNarrativeTagsDescriptionsContext(context)
@@ -493,9 +525,6 @@ export const resolveNarrativeTagsEntityTarget = (context: Record<string, unknown
   }
 
   const text = combinedDescriptionText(descriptionsContext.descriptions)
-  if (!text) {
-    return null
-  }
 
   if (descriptionsContext.kind === 'agreement.descriptions') {
     return {

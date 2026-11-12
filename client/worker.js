@@ -35136,18 +35136,18 @@ var init_scoring_VWQATRFO = __esm({
 init_chunk_Y3KSGS5U();
 function createTransformersTagExtractor(inputConfig = {}) {
   let config = resolveTagExtractorConfig(inputConfig);
-  let extractorPromise2 = null;
+  let extractorPromise = null;
   const embeddingCache = /* @__PURE__ */ new Map();
   const loadModel = async (callbacks = {}) => {
     callbacks.onStatus?.({ phase: "loading", message: `Loading ${config.modelId}` });
-    if (!extractorPromise2) {
+    if (!extractorPromise) {
       const transformers = await Promise.resolve().then(() => (init_transformers_web(), transformers_web_exports));
       configureTransformers(transformers, config, callbacks);
-      extractorPromise2 = transformers.pipeline(config.task, config.modelId, {
+      extractorPromise = transformers.pipeline(config.task, config.modelId, {
         dtype: config.dtype
       });
     }
-    await extractorPromise2;
+    await extractorPromise;
     callbacks.onStatus?.({ phase: "ready", message: `${config.modelId} ready` });
   };
   const embed = async (text) => {
@@ -35158,7 +35158,7 @@ function createTransformersTagExtractor(inputConfig = {}) {
       }
     }
     await loadModel();
-    const extractor = await extractorPromise2;
+    const extractor = await extractorPromise;
     if (!extractor) {
       return [];
     }
@@ -35188,7 +35188,7 @@ function createTransformersTagExtractor(inputConfig = {}) {
     },
     reset(nextConfig = {}) {
       config = resolveTagExtractorConfig(nextConfig);
-      extractorPromise2 = null;
+      extractorPromise = null;
       embeddingCache.clear();
     }
   };
@@ -35239,8 +35239,7 @@ init_chunk_Y3KSGS5U();
 
 // client/worker-source.js
 var MODEL_BASE_PATH = "/extensions/gcs-narrative-tags/models/";
-var extractorPromise = null;
-var serializedConfig = "";
+var extractorState = { kind: "empty" };
 var asNumber = (value, fallback, min3, max2) => {
   const numericValue = typeof value === "number" ? value : Number(value);
   if (!Number.isFinite(numericValue)) {
@@ -35273,12 +35272,29 @@ var resolveConfig = (payload) => resolveTagExtractorConfig({
 });
 var getExtractor = async (config) => {
   const nextSerializedConfig = JSON.stringify(config);
-  if (!extractorPromise || serializedConfig !== nextSerializedConfig) {
+  if (extractorState.kind === "empty" || extractorState.config !== nextSerializedConfig) {
     const extractor = createTransformersTagExtractor(config);
-    serializedConfig = nextSerializedConfig;
-    extractorPromise = extractor.loadModel().then(() => extractor);
+    const pending = {
+      kind: (
+        /** @type {const} */
+        "loading"
+      ),
+      config: nextSerializedConfig,
+      promise: extractor.loadModel().then(() => extractor)
+    };
+    extractorState = pending;
+    try {
+      const loaded = await pending.promise;
+      if (extractorState === pending) extractorState = { kind: "ready", config: nextSerializedConfig, extractor: loaded };
+      return loaded;
+    } catch (error) {
+      if (extractorState === pending) extractorState = { kind: "failed", config: nextSerializedConfig, error };
+      throw error;
+    }
   }
-  return await extractorPromise;
+  if (extractorState.kind === "ready") return extractorState.extractor;
+  if (extractorState.kind === "failed") throw extractorState.error;
+  return await extractorState.promise;
 };
 var toTagDefinition = (tag) => ({
   key: String(tag.key ?? "").trim(),

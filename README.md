@@ -29,6 +29,33 @@ Agreement tag writes use the host's two-phase authorization protocol. The route 
 
 Hosts embedding this extension must provide `gcsExtension.writeAuthorization` in the request context. The current-scope callback is preferred; the legacy current-entity callback remains supported for compatible hosts.
 
+Proponent profile saves use the host's active transaction and existing Proponent
+write lock. The hook validates submitted tags against the freshly authorized
+contribution Agencies and readable linked Agreement sources. For each submitted
+field, it replaces that visible projection while retaining stored tags outside
+those sources. The successful Proponent GET returns a versioned `sourceProjection`;
+the mounted slot forwards its combined membership as `proponentSourceProjection`
+with the edited field payload. The transaction re-resolves current authorized
+sources and requires the same membership before replacing any tags. Missing,
+malformed, expanded or reduced membership fails with the bilingual HTTP 409
+`GCS_NARRATIVE_TAGS_SOURCE_PROJECTION_CHANGED` error; reload the profile before
+retrying. This prevents a newly enabled source from becoming replaceable before
+the editor has read it. Hidden tags never enter the client payload. Omitted fields and an
+absent or empty field map leave their stored values untouched. Explicit empty
+arrays remove visible tags. Removing a displayed chip preserves every remaining
+tag’s authored label and exact source; only a genuinely new custom entry receives
+the current default source. Agreement persistence retains its single-Stream
+replacement contract.
+
+Field storage accepts current object maps of predefined or custom tag arrays,
+including unsourced values and the supported `:en`/`:fr` field keys. A missing KV
+row or empty object is unauthored. The existing read projection is unchanged;
+merging preserves unprojectable array entries and omitted fields verbatim rather
+than cleaning them up during an unrelated profile save. A nonobject stored root
+or a submitted field whose stored value is not an array cannot be merged without
+guessing; the save rolls back with the bilingual
+`GCS_NARRATIVE_TAGS_PERSISTED_TAGS_INVALID` error and leaves the retained data intact.
+
 ## Development
 
 ```bash
@@ -36,7 +63,16 @@ bun install
 bun run build:worker
 bun run typecheck
 bun run test:unit
+bun run test:coverage
 ```
+
+The Proponent persistence suite runs the real GET, mounted description slot,
+transaction-bound profile hook and JSONB KV operations against isolated PGlite.
+Its reduced schema supplies already-admitted Agency and Agreement access; it does
+not replace host HTTP authorization tests. Overlapping writes exercise the
+Proponent aggregate transaction boundary with serialized PGlite connection leases.
+Independent-connection PostgreSQL lock contention requires separate integration
+verification.
 
 ## Translation ownership
 

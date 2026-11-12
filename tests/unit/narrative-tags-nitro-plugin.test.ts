@@ -5,6 +5,7 @@ const validateRequestedTagsMock = vi.hoisted(() => vi.fn())
 const validateRequestedSourceTagsMock = vi.hoisted(() => vi.fn())
 const setPersistedNarrativeTagsMock = vi.hoisted(() => vi.fn())
 const setPersistedTextFieldTagsMock = vi.hoisted(() => vi.fn())
+const mergePersistedProponentTextFieldTagsMock = vi.hoisted(() => vi.fn())
 
 vi.mock('@gcs-ssc/extensions/server', () => ({
   defineGcsExtensionNitroPlugin: (callback: unknown) => callback,
@@ -19,6 +20,7 @@ vi.mock('../../server/narrative-tags-route', () => ({
   resolveProponentNarrativeTagSources: (...args: unknown[]) => resolveSourcesMock(...args),
   setPersistedNarrativeTags: (...args: unknown[]) => setPersistedNarrativeTagsMock(...args),
   setPersistedTextFieldTags: (...args: unknown[]) => setPersistedTextFieldTagsMock(...args),
+  mergePersistedProponentTextFieldTags: (...args: unknown[]) => mergePersistedProponentTextFieldTagsMock(...args),
   validateRequestedSourceTags: (...args: unknown[]) => validateRequestedSourceTagsMock(...args),
   validateRequestedTags: (...args: unknown[]) => validateRequestedTagsMock(...args)
 }))
@@ -27,7 +29,8 @@ vi.mock('../../server/errors', () => ({
   createNarrativeTagsUserError: (code: string, path: string) => Object.assign(new Error(code), { code, path })
 }))
 
-vi.mock('../../components/narrative-tags', () => ({
+vi.mock('../../components/narrative-tags', async importOriginal => ({
+  ...await importOriginal<typeof import('../../components/narrative-tags')>(),
   normalizeNarrativeTagsConfig: (value: unknown) => value
 }))
 
@@ -51,9 +54,10 @@ const loadHooks = async (row: Record<string, unknown> | undefined = { enabled: t
 describe('narrative tags Nitro hooks', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    resolveSourcesMock.mockReset()
     validateRequestedTagsMock.mockImplementation((_config, value) => value)
     validateRequestedSourceTagsMock.mockImplementation((_sources, value) => value)
-    resolveSourcesMock.mockResolvedValue([{ source: {}, config: {} }])
+    resolveSourcesMock.mockResolvedValue([{ source: { agencyId: 'agency-1' }, config: {} }])
   })
 
   it('registers the same agreement persistence handler for create and update', async () => {
@@ -166,6 +170,7 @@ describe('narrative tags Nitro hooks', () => {
       rawBody: {
         extensions: {
           'gcs-narrative-tags': {
+            proponentSourceProjection: { version: 1, sourceKeys: ['agency-1:agency'] },
             textFieldTags: {
               'proponent.description:fr': requested,
               'proponent.description:en': requested
@@ -181,8 +186,8 @@ describe('narrative tags Nitro hooks', () => {
     expect(validateRequestedSourceTagsMock).toHaveBeenCalledWith(
       expect.any(Array), requested, 'en', 'proponent.description'
     )
-    expect(setPersistedTextFieldTagsMock).toHaveBeenCalledWith(
-      db, 'gcs-narrative-tags', 'applicantrecipient', 'recipient-1', expect.any(Object)
+    expect(mergePersistedProponentTextFieldTagsMock).toHaveBeenCalledWith(
+      db, 'gcs-narrative-tags', 'recipient-1', expect.any(Array), expect.any(Object)
     )
   })
 
@@ -195,7 +200,7 @@ describe('narrative tags Nitro hooks', () => {
       agencyId: 'agency-1',
       applicantRecipientId: 'recipient-1',
       rawBody: {
-        extensions: { 'gcs-narrative-tags': { textFieldTags: { 'proponent.description:en': ['invalid'] } } }
+        extensions: { 'gcs-narrative-tags': { proponentSourceProjection: { version: 1, sourceKeys: ['agency-1:agency'] }, textFieldTags: { 'proponent.description:en': ['invalid'] } } }
       }
     })).rejects.toMatchObject({
       code: 'GCS_NARRATIVE_TAGS_INVALID_TAGS', path: 'extensions.gcs-narrative-tags.textFieldTags'
@@ -209,7 +214,7 @@ describe('narrative tags Nitro hooks', () => {
     const tags = [{ predefined: true, key: 'second-agency-tag', source: { agencyId: '2' } }]
     await hooks['applicantrecipient:profile:updated']!({
       db, agencyIds: ['1', '2'], applicantRecipientId: 'recipient-1', rawBody: {
-        extensions: { 'gcs-narrative-tags': { textFieldTags: { 'proponent.description:en': tags } } }
+        extensions: { 'gcs-narrative-tags': { proponentSourceProjection: { version: 1, sourceKeys: ['1:agency', '2:agency'] }, textFieldTags: { 'proponent.description:en': tags } } }
       }
     })
     expect(resolveSourcesMock).toHaveBeenCalledTimes(2)
